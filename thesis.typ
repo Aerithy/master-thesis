@@ -28,7 +28,7 @@
 ]
 
 #show: thesis.with(
-  title: (zh: "面向跨域多数据中心场景的分布式训练通信优化研究", en: "Research on Communication Optimization for Distributed Training in Cross-Domain Multi-Data Center Scenarios"),
+  title: (zh: "面向云边端的跨域分布式训练通信优化研究", en: "Research on Communication Optimization for Distributed Training in Cross-Domain Multi-Data Center Scenarios"),
   author: (zh: "李云潼", en: "Yuntong Li"),
   teacher: (zh: "肖利民", en: "Limin Xiao"),
   teacher-degree: (zh: "教授", en: "Prof."),
@@ -45,7 +45,6 @@
     summit: "2026年06月10日",
     defense: "2026年06月10日",
   ),
-  degree-type: "master",  // 学位类型：可选 "master" (硕士) 或 "doctor" (博士)
   degree: (zh: "工学硕士", en: "Master of Engineering"),
   lib-number: "TP317",
   stu-id: "BY2406100",
