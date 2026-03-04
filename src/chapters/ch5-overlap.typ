@@ -2,64 +2,177 @@
 
 == 研究背景与动机
 
-在分布式深度学习训练中，通信开销已成为制约系统性能的核心瓶颈。特别是在跨地域分布式训练场景中，数据分散在不同地理位置（如多个数据中心），面临高延迟、低带宽的网络环境。传统的同步训练方法要求所有节点在完成本地计算后进行全局参数同步，这导致大量的计算资源在等待通信完成时处于空闲状态，严重降低了训练效率。
+跨数据中心（Cross-DC）训练常见于数据就地合规、跨地域数据融合与算力资源分散等场景。与单数据中心互联（如 InfiniBand/RDMA）相比，广域网（WAN）通常只有 10–30 Gb/s 量级带宽、30–100 ms 往返时延（RTT），使得同步训练中的通信开销直接进入关键路径，造成 GPU 长时间空闲与吞吐下降。
 
-本章针对两种典型的分布式训练场景提出相应的通信掩盖策略：
+从系统角度看，Cross-DC 训练的难点不只在于“带宽更低”，还在于“时延更高且更难被隐藏”。当 RTT 达到毫秒量级时，许多传统在单数据中心可忽略的等待（例如一次 collective 的启动、同步点的排队）都会叠加成显著的迭代尾部。与此同时，跨 DC 的网络抖动还会放大 *同步屏障* 对全局吞吐的影响：任何一个 DC 的短暂变慢，都可能让所有 GPU 在屏障处空等。
 
-1. *Local-SGD 场景*：提出基于梯度预测的 Polar-SGD 方法，通过分层梯度预测和异步通信，实现计算与通信的高度重叠
+=== 并行骨架的选择：跨 DC DP 优于跨 DC PP
 
-2. *混合并行场景*：针对数据并行与流水线并行的混合架构，设计分块通信调度器和优先级机制，解决带宽争用问题
+在 Cross-DC 环境中，以流水线并行为骨架（跨 DC PP）会迫使训练样本/激活在数据中心之间频繁穿梭，入口与跨段链路容易成为瓶颈，如图@fig:cross-dc-pp 所示。
 
-=== 通信瓶颈分析
+#figure(
+  rect(
+    width: 96%,
+    height: 200pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：Cross-DC Pipeline Parallelism 示意图]_ \
+          #v(8pt)
+          复用自论文 Fig.1（pp_across_dcs.png）
+        ]
+      ]
+    ]
+  ),
+  caption: [跨数据中心流水线并行：数据必须汇入单入口 DC，产生入口瓶颈（复用自论文 Fig.1）]
+) <fig:cross-dc-pp>
 
-在跨数据中心训练场景中，主要面临以下通信挑战：
+相对地，以数据并行为骨架（跨 DC DP）将前/后向计算限定在数据中心内，仅在迭代末进行梯度同步，天然契合数据就地处理，并对网络波动更鲁棒，如图@fig:cross-dc-dp 所示。
+
+#figure(
+  rect(
+    width: 96%,
+    height: 200pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：Cross-DC DP + Intra-DC PP 示意图]_ \
+          #v(8pt)
+          复用自论文 Fig.2（dp_across_dcs.png）
+        ]
+      ]
+    ]
+  ),
+  caption: [跨数据中心数据并行 + 数据中心内流水线并行：各 DC 处理本地数据，仅跨 WAN 同步梯度（复用自论文 Fig.2）]
+) <fig:cross-dc-dp>
+
+因此，本章聚焦论文设定的层次化混合并行：跨 DC 采用 DP，同一数据中心内采用 PP（DP+PP）。该设定避免跨 DC 传输激活/样本，但引入新的关键瓶颈：跨 DC 梯度同步尾部（All-Reduce tail）。
+
+为进一步说明“跨 DC DP 优于跨 DC PP”的结构性原因，可以用通信量随 batch 规模的增长趋势来刻画。设共有 $D$ 个数据中心，每个 DC 处理本地 batch $b$，则全局 batch 为 $B = D dot b$。令 $alpha$ 表示每个参数参与同步的字节数（与精度/压缩有关），$P$ 表示模型参数规模（以参数个数或字节计），$A$ 表示当流水线切分跨越数据中心时每个样本需要跨 WAN 传输的激活（及其反向激活梯度）大小。
+
+当跨 DC 采用 DP 时，跨 WAN 的通信主要来自每步一次的梯度同步，其通信量近似与模型规模相关：
+
+$ V_"DP" approx alpha dot P $
+
+在模型固定时，$V_"DP"$ 随 $B$ 增加近似不变，从而更容易通过增大 batch 或提升 DC 内计算并行来摊薄 WAN 固定开销。
+
+当跨 DC 采用 PP 时，一旦流水线切分跨 DC，则每个 micro-batch 都需要跨 WAN 传输激活，迭代内 WAN 流量与样本数近似线性增长：
+
+$ V_"PP" approx Theta(B dot A) $
+
+并且 PP 的跨 DC 传输更可能位于计算关键路径之上（stage 依赖强），一旦 WAN 出现波动，容易级联放大为全流水线停顿。因此，论文选择“跨 DC DP + DC 内 PP”的层次化骨架，以在数据就地的前提下，尽可能将 WAN 通信从强依赖链路中剥离。
+
+=== 同步尾部成为主要瓶颈
+
+在 WAN 延迟主导时，即使框架在反向传播期间做了“分桶 All-Reduce”重叠，也容易出现迭代末尾无法被剩余计算掩盖的阻塞尾部。图@fig:dppp-timebreakdown 展示了 DP+PP 配置下跨 DC 与 DC 内开销分解：跨 DC 同步在每步中占据显著比例，导致 GPU 等待。
+
+#figure(
+  rect(
+    width: 96%,
+    height: 190pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：DP+PP step 时间分解柱状图]_ \
+          #v(8pt)
+          复用自论文 Fig.3（bar_time_by_network.png）
+        ]
+      ]
+    ]
+  ),
+  caption: [DP+PP 配置下每步计算/通信开销分解：跨 DC 同步成为主要等待来源（复用自论文 Fig.3）]
+) <fig:dppp-timebreakdown>
+
+面对同步尾部，一类直观做法是弱化同步（如 Local-SGD），但其本质是降低同步频率而非消除同步尾部，且会引入更强的优化漂移风险。本章采用论文提出的 POLAR-SGD：在不改变“每迭代一次全局同步”这一基本语义的前提下，通过 *前缀触发的异步 All-Reduce + 预测误差修正* 将同步从关键路径中剥离。
+
+需要补充的是，单数据中心场景中常见的“bucket 级别通信重叠”（例如按参数桶在反向传播过程中分批启动 All-Reduce）在 WAN 环境下往往不足以完全隐藏同步开销。原因在于：WAN 的 $T_"ar"$ 可能显著大于单个 bucket 之后剩余的可用计算窗口，导致最后几个 bucket 的同步不可避免地串行堆叠在迭代尾部，形成长尾。POLAR-SGD 的思路并不是让 All-Reduce 发生得更“碎”，而是通过选择一个 *更早、更长* 的可重叠窗口（在 micro-batch 前缀处触发一次 collective），让整个 All-Reduce 更大概率被后续反向传播所掩盖。
+
+== 问题设定与记号
+
+考虑一个 DP+PP 混合训练过程：每个全局迭代（step）以一个 mini-batch 为单位，将其划分为 $M$ 个 micro-batch 并采用 1F1B 调度执行。跨 DC 使用 DP（DP 组大小为 $N$），同一 DC 内使用 PP（用于模型切分与计算流水线）。
+
+在该设定下，DC 内 PP 负责把计算“铺开”以提升显存可承载的模型规模，并通过 1F1B 将多个 micro-batch 的前向/反向交错执行来提高单 DC 内的流水线利用率；跨 DC DP 则要求每步获得一致的更新方向，需要对 DP 组内的梯度做均值 All-Reduce。该 All-Reduce 因 WAN 特性成为尾部瓶颈。
+
+在一个迭代 $t$ 内、DP 组内的 worker（rank）$r$ 上，micro-batch $m$ 的局部梯度记为 $g_(r,t,m)$。我们关心如何选择一个 micro-batch 截断点 $tau$，在 $m=tau$ 时启动一次非阻塞 All-Reduce，并利用误差反馈在后续迭代补齐未同步的梯度信息。
 
 #figure(
   table(
-    columns: (auto, auto, auto, auto),
-    align: center,
+    columns: (auto, auto),
+    align: left,
     stroke: none,
     table.hline(),
-    table.header([*问题类型*], [*具体表现*], [*影响程度*], [*传统方案局限*]),
+    table.header([*符号*], [*含义*]),
     table.hline(stroke: 0.5pt),
-    [通信阻塞], [必须等待计算完成\n才能启动通信], [高], [GPU 空闲时间长],
-    [计算空闲], [通信期间\nGPU 等待], [高], [资源利用率低],
-    [带宽争用], [多节点同时通信\n造成拥塞], [中], [有效带宽降低],
-    [扩展性差], [节点增加导致\n同步开销增长], [高], [难以大规模扩展],
+    [$M$], [每个 mini-batch 的 micro-batch 数],
+    [$m$], [micro-batch 索引],
+    [$t$], [全局迭代索引],
+    [$r$], [DP 组内 worker（rank）索引],
+    [$g_(r,t,m)$], [worker $r$ 在迭代 $t$、micro-batch $m$ 的梯度],
+    [$g_(r,t)^(tau)$], [前缀累积梯度：从 $m=1$ 到 $m=tau$ 的累积],
+    [$g_(r,t)^(M)$], [完整累积梯度：从 $m=1$ 到 $m=M$ 的累积],
+    [$g_"pred",(r,t)$], [截断点处构造、送入 All-Reduce 的预测梯度（缩放后）],
+    [$g_"sync",t$], [All-Reduce 的同步梯度（DP 组内均值）],
+    [$e_(r,t)$], [误差缓冲（error buffer）],
+    [$s_(r,t)$], [通信发送缓冲（send buffer）],
+    [$h_t$], [异步通信句柄（handle）],
+    [$w_t$], [迭代 $t$ 的模型参数],
+    [$eta$], [学习率],
+    [$tau$], [通信触发的截断 micro-batch 索引],
     table.hline(),
   ),
-  caption: [跨数据中心训练的主要通信挑战]
-) <tab:comm-challenges>
+  caption: [POLAR-SGD 记号表（整理自论文 Notation 表）]
+) <tab:polar-notation>
 
-== Local-SGD 中的梯度预测通信掩盖策略
+== POLAR-SGD：方法概述
 
-=== 问题形式化定义
+图@fig:polar-overview 对比了标准 DP+PP 与 POLAR-SGD 的单次迭代时间线。标准做法往往在处理完全部 $M$ 个 micro-batch 的反向传播后，才在迭代尾部执行阻塞式 All-Reduce，形成明显同步尾部；POLAR-SGD 则在 micro-batch 前缀完成时（$m=tau$）触发 *一次* 非阻塞 All-Reduce，并放入独立通信 stream，使其与后续 $(M-tau)$ 个 micro-batch 的反向传播重叠，从而缩短迭代尾部。
 
-传统的 Local-SGD 采用严格同步更新机制，所有节点在完成 $T$ 步本地训练后才进行全局参数同步。设第 $t$ 步的全局参数为 $theta_t$，节点 $i$ 的本地参数为 $theta_t^i$，梯度为 $g_t^i$，则参数更新公式为：
+#figure(
+  rect(
+    width: 98%,
+    height: 220pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：Baseline vs POLAR-SGD 时间线对比图]_ \
+          #v(8pt)
+          复用自论文 Fig.4（polar-pp-timeline.png）
+        ]
+      ]
+    ]
+  ),
+  caption: [DP+PP 下的执行时间线对比：POLAR-SGD 通过前缀触发的异步 All-Reduce 缩短同步尾部（复用自论文 Fig.4）]
+) <fig:polar-overview>
 
-$ theta_(t + T) &= 1/K sum_(i=0)^(K-1) theta_(t + T)^i \
-&= 1/K sum_(i=0)^(K-1) (theta_t^i - eta dot sum_(n = 0)^(T - 1) g_(t + n)^i) \
-&= theta_t - (eta dot K) sum_(i=0)^(K-1) sum_(n = 0)^(T - 1) g_(t + n)^i $
+需要强调的是：POLAR-SGD 并非简单丢弃后缀 micro-batch 的梯度，而是通过 *梯度缩放 + 误差反馈* 的方式将后缀信息以残差形式注入到下一次迭代，兼顾“可重叠的系统行为”与“稳定的优化语义”。
 
-这种严格同步机制的主要问题在于，通信必须等待所有本地训练步骤完成，导致计算资源在通信期间空闲。
+为了便于理解，可以将 POLAR-SGD 的目标概括为三点：
 
-=== 分层梯度预测理论
+1. *系统目标*：尽可能将跨 DC All-Reduce 放到足够早的位置，使其能与后续计算重叠，从而缩短迭代尾部。
 
-对模型进行K层划分：$theta_t = [theta_(t,0), theta_(t,1), ..., theta_(t,K-1)]$，对应梯度为 $g_t = [g_(t,0), g_(t,1), ..., g_(t,K-1)]$。
+2. *语义约束*：仍保持“每迭代一次 DP 同步”的宏观节奏，避免完全异步带来的强 staleness。
 
-对于第m层参数，其在第t+K步的更新公式为：
+3. *优化稳定性*：用可控的残差通道补齐后缀梯度，使 step-wise 的收敛曲线尽量贴近基线同步训练。
 
-$ theta_(t + K, m) & = 1/K sum_(i=0)^(K-1) theta_(t + K, m)^i \
-  & = 1/K sum_(i=0)^(K-1) (theta_(t, m)^i - eta dot sum_(n = 0)^(K - 1) g_(t + n, m)^i) \
-  & = theta_(t, m) - eta/K sum_(i=0)^(K-1) sum_(n = 0)^(K - 1) g_(t + n, m)^i $
+== 前缀触发的异步梯度同步
 
-*关键洞察*：在第t+m步时，层m已经完成了前m+1次反向传播，可以利用已有梯度信息预测未来K-m-1步的梯度。引入预测函数：
+=== 一次迭代只触发一次 All-Reduce
 
-$ hat(g)_(t,m)^"pred" = P(sum_(n=0)^m g_(t + n, m)^i, K, m) = (sum_(n=0)^m g_(t+n,m)^i) dot K/(m+1) + e_(t-K,m) $
+POLAR-SGD 在每个 micro-batch 反向结束时累积梯度。当到达截断点 $m=tau$ 时，对当前前缀梯度做快照并构造发送缓冲 $s_(r,t)$，随后触发一次非阻塞 All-Reduce；在 $m=M$（mini-batch 结束）时等待通信完成，得到 $g_"sync",t$ 并执行优化器更新。
 
-其中 $e_(t-K,m)$ 为上一轮的预测误差补偿项。
+这里“每迭代一次 All-Reduce”的设计有两个直接好处：
 
-=== Polar-SGD算法详细描述
+1) *避免频繁 collective 的启动开销*：在 WAN 环境下，collective 的启动与同步管理开销更难忽略，过细粒度可能适得其反。
+
+2) *便于与 DP+PP 的控制流集成*：在 1F1B 调度下，micro-batch 的反向完成顺序明确，选择一个截断点能稳定地产生较长的可重叠窗口。
 
 #figure(
   table(
@@ -67,48 +180,83 @@ $ hat(g)_(t,m)^"pred" = P(sum_(n=0)^m g_(t + n, m)^i, K, m) = (sum_(n=0)^m g_(t+
     align: left,
     stroke: none,
     table.hline(),
-    table.header([*算法 1：Polar-SGD主训练流程*]),
+    table.header([*算法 1：POLAR-SGD 的前缀触发异步 All-Reduce（每迭代一次）*]),
     table.hline(stroke: 0.5pt),
     [
-      *输入：* 模型 $M$，训练数据 $D$，学习率 $eta$，节点数 $K$，本地步数 $T$，模型分层数 $P$ ($P=K$ 用于最优重叠) \
-      *输出：* 训练完成的模型参数 $theta$
+      *全局状态：* 累积梯度 $g_a$；前缀快照 $g^(tau)$；通信句柄 $h_t$ \
+      *回调：* 在每个 micro-batch 反向结束时调用
     ],
     table.hline(stroke: 0.5pt),
     [
       #set par(leading: 0.65em)
       #v(0.3em)
-      #h(-2em) ▷ *初始化* \
-      *1:*  #h(1.5em) 将模型 $M$ 分割为 $P$ 层: $M = [M_0, M_1, ..., M_(P-1)]$ \
-      *2:*  #h(1.5em) 为每个节点 $i$ 初始化: $theta_0^i <- "random_init"()$ \
-      *3:*  #h(1.5em) 初始化误差缓冲: $E <- [[0] times "layers"] times P$ \
-      *4:*  #h(1.5em) 初始化梯度累积器: $G_"acc" <- [[0] times "layers"] times P$ \
-      *5:*  #h(1.5em) 初始化通信句柄池: $"CommHandles" <- ["None"] times P$ \
-      *6:*  #h(1.5em) 注册反向传播钩子: $"RegisterBackwardHooks"(M, P)$ \
-      #v(0.3em)
-      *7:*  #h(1.5em) *for* $"epoch" = 1$ *to* $"max_epochs"$ *do* \
-      *8:*  #h(3em) *for* $"batch_idx" = 1$ *to* $"num_batches"$ *do* \
-      *9:*  #h(4.5em) ▷ 前向传播 \
-      *10:* #h(4.5em) $"input" <- "GetBatch"(D, "batch_idx")$ \
-      *11:* #h(4.5em) $"output" <- "ForwardPass"(M, "input")$ \
-      *12:* #h(4.5em) $"loss" <- "ComputeLoss"("output", "labels")$ \
-      *13:* #h(4.5em) ▷ 反向传播 (触发Hook机制) \
-      *14:* #h(4.5em) $"loss"."backward"()$ \
-      *15:* #h(4.5em) ▷ Hook会自动调用算法2 \
-      *16:* #h(4.5em) ▷ 等待所有通信完成 \
-      *17:* #h(4.5em) *if* $"batch_idx" mod T = 0$ *then* \
-      *18:* #h(6em) $"SynchronizeAllCommunications"("CommHandles")$ \
-      *19:* #h(6em) $"UpdateParameters"(theta, G_"acc", eta, K)$ \
-      *20:* #h(6em) $"ClearAccumulators"(G_"acc")$ \
-      *21:* #h(4.5em) *end if* \
-      *22:* #h(3em) *end for* \
-      *23:* #h(1.5em) *end for* \
-      *24:* #h(1.5em) *return* $theta$
+      #h(-2em) *procedure* $"OnBackwardMicroBatch"(t, m, g_(r,t,m))$ \
+      *1:*  #h(1.5em) $g_a <- g_a + g_(r,t,m)$ #h(1em) ▷ PP 的梯度累积 \
+      *2:*  #h(1.5em) *if* $m = tau$ *then* \
+      *3:*  #h(3em) $g^(tau) <- g_a$ #h(1em) ▷ 记录前缀梯度快照 \
+      *4:*  #h(3em) $s_(r,t) <- "BuildSendBufferAtCutoff"(t, g^(tau))$ \
+      *5:*  #h(3em) $h_t <- "AsyncAllReduceMean"(s_(r,t))$ \
+      *6:*  #h(1.5em) *end if* \
+      *7:*  #h(1.5em) *if* $m = M$ *then* \
+      *8:*  #h(3em) *wait* $(h_t)$ #h(1em) ▷ 得到同步梯度 $g_"sync",t$ \
+      *9:*  #h(3em) $"OptimizerStep"(g_"sync",t)$ \
+      *10:* #h(3em) $"UpdateError"(t, g_a)$ #h(1em) ▷ 用完整累积梯度更新误差缓冲 \
+      *11:* #h(3em) $g_a <- 0$; $h_t <- "NULL"$ \
+      *12:* #h(1.5em) *end if*
       #v(0.3em)
     ],
     table.hline(),
   ),
-  caption: [Polar-SGD主训练流程]
-) <algo:polar-sgd>
+  caption: [前缀触发的异步梯度同步流程（整理自论文 Algorithm: communication）]
+) <algo:polar-communication>
+
+=== 截断点 $tau$ 的选择规则
+
+令 $T_"ar"$ 表示本次梯度 All-Reduce 的平均通信时延估计，$T_"comp"(tau)$ 表示在 $m=tau$ 触发通信后，迭代内剩余的计算时间（通常来自后续 micro-batch 的反向传播）。论文采用“*最早可完全掩盖*”的截断点：
+
+$ tau^* := min {tau in {1, ..., M}: T_"comp"(tau) >= T_"ar"} $
+
+实践中，可通过滑动窗口在线 profiling 获得 $T_"ar"$ 与 $T_"comp"(tau)$ 的估计：较小 $tau$ 带来更长的可重叠窗口，但也会加大对误差反馈的依赖；较大 $tau$ 则更接近基线的同步语义。
+
+当对所有 $tau$ 都无法满足 $T_"comp"(tau) >= T_"ar"$ 时，可以退化为 $tau^* = M$，此时算法行为接近“迭代末同步”的基线。该退化机制使得 POLAR-SGD 能在网络条件较好或模型计算较短等情形下自动回到保守策略。
+
+在工程实现上，$T_"ar"$ 可由最近若干步 All-Reduce 的完成时延统计得到；$T_"comp"(tau)$ 则可由 profiler 记录从 micro-batch $tau$ 反向完成到本迭代结束（$m=M$）的剩余反向时间估计。为了避免 $tau$ 在相邻迭代间剧烈抖动，通常会对估计值做滑动平均，并在更新 $tau$ 时加入简单的迟滞（例如只有当新 $tau$ 带来显著收益时才切换）。
+
+== 预测误差修正（Predictive Error Correction）
+
+前缀触发意味着本次迭代的同步更新方向来自前缀梯度。为避免“后缀 micro-batch 信息被忽略”，POLAR-SGD 通过“前缀缩放”构造全 batch 尺度的预测梯度，并维护误差缓冲记录预测与真实完整累积之间的偏差。
+
+=== 前缀梯度与完整梯度
+
+在 worker $r$ 的迭代 $t$ 中，定义：
+
+$ g_(r,t)^(tau) := sum_(m=1)^tau g_(r,t,m),  quad g_(r,t)^(M) := sum_(m=1)^M g_(r,t,m) $
+
+当 $m=tau$ 时，累积缓冲 $g_a$ 等于 $g_(r,t)^(tau)$；当 $m=M$ 时，$g_a$ 等于 $g_(r,t)^(M)$。
+
+=== 发送缓冲与误差更新
+
+在截断点处构造发送缓冲（同时作为预测梯度的未归约形式）：
+
+$ s_(r,t) = (M/tau) dot (g_(r,t)^(tau) + e_(r,t)),  quad g_"pred",(r,t) := s_(r,t) $
+
+对 $s_(r,t)$ 做 DP 组内均值 All-Reduce，得到同步梯度：
+
+$ g_"sync",t = (1/N) sum_(r=1)^N g_"pred",(r,t) $
+
+当迭代内全部 $M$ 个 micro-batch 完成后，用“完整累积梯度 − 预测梯度”更新误差缓冲：
+
+$ e_(r,t+1) = g_(r,t)^(M) - g_"pred",(r,t) $
+
+该残差包含后缀 $(M-tau)$ 个 micro-batch 的梯度信息以及前缀预测误差，并在下一迭代通过 $e_(r,t)$ 注入到发送缓冲中，从而以受控方式“延迟使用”后缀梯度。
+
+从直观上看，$(M/tau)$ 的缩放因子承担了“把前缀的梯度尺度外推到全 batch”的作用：如果梯度在 micro-batch 维度上统计上相对平稳，那么 $g_(r,t)^(tau)$ 的期望规模与 $tau$ 成正比，乘以 $(M/tau)$ 后就与 $g_(r,t)^(M)$ 更接近。误差缓冲 $e_(r,t)$ 则用于吸收“外推偏差 + 后缀梯度信息”，把这些信息以 residual 的形式带到下一步同步中。
+
+论文还给出了一个有用的“守恒”视角：对 DP 组内取平均，令 $bar g_t^(M) := (1/N) sum_(r=1)^N g_(r,t)^(M)$ 且 $bar e_t := (1/N) sum_(r=1)^N e_(r,t)$，则在误差更新定义下可得到（形式上）
+
+$ g_"sync",t + bar e_(t+1) = bar g_t^(M) $
+
+该等式说明：同步更新方向与下一步的平均残差共同分解了“本步完整累积梯度”的信息；也就是说，后缀 micro-batch 的信息并未被忽略，只是被延迟到 residual 通道中体现。
 
 #figure(
   table(
@@ -116,141 +264,104 @@ $ hat(g)_(t,m)^"pred" = P(sum_(n=0)^m g_(t + n, m)^i, K, m) = (sum_(n=0)^m g_(t+
     align: left,
     stroke: none,
     table.hline(),
-    table.header([*算法 2：分层梯度预测与异步通信钩子*]),
+    table.header([*算法 2：POLAR-SGD 的误差反馈（前缀缩放 + residual 更新）*]),
     table.hline(stroke: 0.5pt),
     [
-      *输入：* partition_id $m$（当前分区ID），$"partitions"$（模型分层列表），$G_"acc"$（梯度累积器），\
-      #h(3em) $E$（误差补偿器），$"iteration"$（当前迭代轮次），$K$（总分区数） \
-      *输出：* 触发异步通信，更新梯度累积器
+      *全局状态：* 误差缓冲 $e_(r,t)$；预测梯度 $g_"pred",(r,t)$；$tau$ 与 $M$
     ],
     table.hline(stroke: 0.5pt),
     [
       #set par(leading: 0.65em)
       #v(0.3em)
-      #h(-2em) *function* $"OnBackwardComplete"(m, "partitions", G_"acc", E, "iteration", K)$ \
-      *1:*  #h(1.5em) ▷ 阶段1: 梯度累积 \
-      *2:*  #h(1.5em) *for each* layer $L$ *in* $"partitions"[m]$ *do* \
-      *3:*  #h(3em) *for each* parameter $p$ *in* $L$ *do* \
-      *4:*  #h(4.5em) *if* $p."grad" != "null"$ *then* \
-      *5:*  #h(6em) $G_"acc"[m][p] <- G_"acc"[m][p] + p."grad"$ \
-      *6:*  #h(4.5em) *end if* \
-      *7:*  #h(3em) *end for* \
-      *8:*  #h(1.5em) *end for* \
-      *9:*  #h(1.5em) ▷ 阶段2: 判断是否需要通信 \
-      *10:* #h(1.5em) $"offset" <- "iteration" mod K$ \
-      *11:* #h(1.5em) *if* $m = ("iteration" + "offset") mod K$ *then* \
-      *12:* #h(3em) ▷ 阶段3: 梯度预测 \
-      *13:* #h(3em) $"scale_factor" <- K \/ (m + 1)$ \
-      *14:* #h(3em) $G_"pred"[m] <- emptyset$ \
-      *15:* #h(3em) *for each* accumulated_grad $g$ *in* $G_"acc"[m]$ *do* \
-      *16:* #h(4.5em) *if* $g != "null" and E[m][g] != "null"$ *then* \
-      *17:* #h(6em) $g_"predicted" <- g times "scale_factor" + E[m][g]$ \
-      *18:* #h(4.5em) *else* \
-      *19:* #h(6em) $g_"predicted" <- g times "scale_factor"$ \
-      *20:* #h(4.5em) *end if* \
-      *21:* #h(4.5em) Append $g_"predicted"$ to $G_"pred"[m]$ \
-      *22:* #h(3em) *end for* \
-      *23:* #h(3em) ▷ 阶段4: 张量扁平化 \
-      *24:* #h(3em) $"flat_tensor" <- "FlattenTensorList"(G_"pred"[m])$ \
-      *25:* #h(3em) ▷ 记录重构信息: sizes, shapes, structure \
-      *26:* #h(3em) ▷ 阶段5: 异步广播通信 \
-      *27:* #h(3em) $"source_rank" <- m mod "WorldSize"$ \
-      *28:* #h(3em) $"comm_handle" <- "AsyncBroadcast"($ \
-      #h(5.5em) $"tensor"="flat_tensor", "src"="source_rank", "group"="InterNodeGroup")$ \
-      *29:* #h(3em) $"CommHandles"[m] <- "comm_handle"$ \
-      *30:* #h(1.5em) *end if* \
-      *31:* #h(1.5em) ▷ 阶段6: 最后一层时进行误差补偿 \
-      *32:* #h(1.5em) *if* $"iteration" = K - 1$ *then* \
-      *33:* #h(3em) ▷ 等待通信完成 \
-      *34:* #h(3em) $"CommHandles"[m]."wait"()$ \
-      *35:* #h(3em) ▷ 重构接收的预测梯度 \
-      *36:* #h(3em) $G_"pred_received" <- "UnflattenTensor"("flat_tensor", "sizes", "shapes")$ \
-      *37:* #h(3em) ▷ 计算预测误差 \
-      *38:* #h(3em) *for each* $(g_"actual", g_"pred")$ *in* $"zip"(G_"acc"[m], G_"pred_received")$ *do* \
-      *39:* #h(4.5em) $E[m][g] <- g_"actual" - g_"pred"$ \
-      *40:* #h(3em) *end for* \
-      *41:* #h(3em) ▷ 应用误差修正 \
-      *42:* #h(3em) *for each* parameter $p$ *in* $"partitions"[m]$ *do* \
-      *43:* #h(4.5em) $"correction" <- G_"acc"[m][p] - G_"pred_received"[p]$ \
-      *44:* #h(4.5em) $p."grad" <- p."grad" - "correction"$ \
-      *45:* #h(3em) *end for* \
-      *46:* #h(3em) ▷ 更新偏移量用于下一轮 \
-      *47:* #h(3em) $"offset" <- ("offset" + 1) mod K$ \
-      *48:* #h(1.5em) *end if* \
-      *49:* #h(1.5em) ▷ 更新迭代计数 \
-      *50:* #h(1.5em) $"iteration" <- ("iteration" + 1) mod K$ \
-      *51:* *end function*
-      #v(0.3em)
-    ],
-    table.hline(),
-  ),
-  caption: [分层梯度预测与异步通信钩子]
-) <algo:gradient-prediction>
-
-#figure(
-  table(
-    columns: (100%,),
-    align: left,
-    stroke: none,
-    table.hline(),
-    table.header([*算法 3：张量扁平化与重构*]),
-    table.hline(stroke: 0.5pt),
-    [
-      *输入：* $"nested_list"$: List\[List\[Tensor\]\] — 嵌套张量列表 \
-      *输出：* $("flat_tensor", "metadata")$ — 扁平化张量及重构元信息
-    ],
-    table.hline(stroke: 0.5pt),
-    [
-      #set par(leading: 0.65em)
-      #v(0.3em)
-      #h(-2em) ▷ *扁平化: 减少通信原语调用次数* \
-      #h(-2em) *function* $"FlattenTensorList"("nested_list")$ \
-      *1:*  #h(1.5em) $"flat_tensors" <- []$ \
-      *2:*  #h(1.5em) $"tensor_sizes" <- []$ \
-      *3:*  #h(1.5em) $"num_tensors_per_sublist" <- []$ \
-      *4:*  #h(1.5em) $"original_shapes" <- []$ \
-      *5:*  #h(1.5em) *for each* $"sublist"$ *in* $"nested_list"$ *do* \
-      *6:*  #h(3em) $"num_tensors" <- "Length"("sublist")$ \
-      *7:*  #h(3em) Append $"num_tensors"$ to $"num_tensors_per_sublist"$ \
-      *8:*  #h(3em) $"shapes_in_sublist" <- []$ \
-      *9:*  #h(3em) *for each* tensor $T$ *in* $"sublist"$ *do* \
-      *10:* #h(4.5em) Append $T."shape"$ to $"shapes_in_sublist"$ \
-      *11:* #h(4.5em) $"flat_T" <- "Flatten"(T)$ \
-      *12:* #h(4.5em) Append $"flat_T"."numel"()$ to $"tensor_sizes"$ \
-      *13:* #h(4.5em) Append $"flat_T"$ to $"flat_tensors"$ \
-      *14:* #h(3em) *end for* \
-      *15:* #h(3em) Append $"shapes_in_sublist"$ to $"original_shapes"$ \
-      *16:* #h(1.5em) *end for* \
-      *17:* #h(1.5em) $"final_flat" <- "Concatenate"("flat_tensors")$ \
-      *18:* #h(1.5em) $"metadata" <- ("num_tensors_per_sublist", "tensor_sizes", "original_shapes")$ \
-      *19:* #h(1.5em) *return* $("final_flat", "metadata")$ \
-      *20:* *end function* \
+      #h(-2em) *procedure* $"BuildSendBufferAtCutoff"(t, g_(r,t)^(tau))$ \
+      *1:*  #h(1.5em) $s_(r,t) <- (M/tau) dot (g_(r,t)^(tau) + e_(r,t))$ \
+      *2:*  #h(1.5em) $g_"pred",(r,t) <- s_(r,t)$ \
+      *3:*  #h(1.5em) *return* $s_(r,t)$ \
       #v(0.5em)
-      #h(-2em) ▷ *重构: 恢复原始张量结构* \
-      #h(-2em) *function* $"UnflattenTensor"("flat_tensor", "metadata")$ \
-      *21:* #h(1.5em) $("num_tensors_per_sublist", "tensor_sizes", "original_shapes") <- "metadata"$ \
-      *22:* #h(1.5em) $"split_tensors" <- "Split"("flat_tensor", "tensor_sizes")$ \
-      *23:* #h(1.5em) $"restored_nested" <- []$ \
-      *24:* #h(1.5em) $"idx" <- 0$ \
-      *25:* #h(1.5em) *for each* $"shape_group"$ *in* $"original_shapes"$ *do* \
-      *26:* #h(3em) $"current_sublist" <- []$ \
-      *27:* #h(3em) *for each* $"shape"$ *in* $"shape_group"$ *do* \
-      *28:* #h(4.5em) $T_"restored" <- "Reshape"("split_tensors"["idx"], "shape")$ \
-      *29:* #h(4.5em) Append $T_"restored"$ to $"current_sublist"$ \
-      *30:* #h(4.5em) $"idx" <- "idx" + 1$ \
-      *31:* #h(3em) *end for* \
-      *32:* #h(3em) Append $"current_sublist"$ to $"restored_nested"$ \
-      *33:* #h(1.5em) *end for* \
-      *34:* #h(1.5em) *return* $"restored_nested"$ \
-      *35:* *end function*
+      #h(-2em) *procedure* $"UpdateError"(t, g_(r,t)^(M))$ \
+      *4:*  #h(1.5em) $e_(r,t+1) <- g_(r,t)^(M) - g_"pred",(r,t)$
       #v(0.3em)
     ],
     table.hline(),
   ),
-  caption: [张量扁平化与重构]
-) <algo:flatten-unflatten>
+  caption: [误差反馈机制（整理自论文 Algorithm: error feedback）]
+) <algo:polar-error-feedback>
 
-=== 通信时序分析
+== 工程实现与系统集成（扩写）
+
+虽然本章重点在算法机制，但要在真实的 DP+PP 系统中获得稳定收益，还需要在控制流与执行资源（CUDA stream）层面保证“异步通信确实与计算并行”。结合论文设定，这里给出更贴近工程实现的集成要点。
+
+=== 与 1F1B 流水线的集成位置
+
+在 1F1B 调度中，micro-batch 的反向传播会按固定节奏在各 stage 上完成。POLAR-SGD 的关键是：在每个 DP rank 上，在 *某个 micro-batch 的反向结束时刻* 统一触发一次 All-Reduce。实现时通常会在“梯度累积完成事件”处设置 hook（或在训练循环里显式判断 $m=tau$），以便在该时刻将 $s_(r,t)$ 交给通信后端。
+
+由于各 stage 的反向完成存在相位差，实际系统中更常见的做法是：在每个 DP rank 内先对所有参数做一次“完整梯度张量”的累积（或以 bucket 形式累积），然后在 $m=tau$ 时对该累积缓冲做快照并进入 All-Reduce。这样能避免在每层/每 bucket 上重复触发通信，符合“每迭代一次 collective”的设计初衷。
+
+=== 通信 stream 与计算 stream 的隔离
+
+要实现重叠，All-Reduce 必须在独立的通信 stream 上启动，且计算 stream 不应等待其完成。一个常见实现骨架是：
+
+1. 计算 stream 完成 micro-batch $m=tau$ 的反向后，记录一个 event。
+
+2. 通信 stream 等待该 event（确保 $s_(r,t)$ 写入完成），随后启动异步 All-Reduce（例如 NCCL 的 async_op）。
+
+3. 计算 stream 继续执行后续 micro-batch 的反向传播与梯度累积。
+
+4. 在 $m=M$ 的更新点，计算 stream 才显式 wait 通信句柄，获取 $g_"sync",t$。
+
+该隔离可以避免“通信被默认 stream 的同步语义拖回关键路径”。
+
+=== 误差缓冲的存储与开销
+
+$e_(r,t)$ 与模型梯度同形，最直接的实现是在每个 DP rank 上维护一个与梯度张量同大小的 buffer。其更新发生在 $m=M$ 之后：此时已得到完整累积梯度 $g_(r,t)^(M)$，且预测梯度 $g_"pred",(r,t)$ 在 $m=tau$ 时已记录。更新 $e_(r,t+1)$ 是一次向量差，额外开销相对一次完整反向传播通常较小，但会带来一定显存占用；因此工程上常结合张量扁平化/分桶来减少 buffer 管理复杂度。
+
+== 理论分析：收敛与稳定性（概要）
+
+在标准随机优化假设下（$L$-光滑、随机梯度无偏、方差有界），论文给出 POLAR-SGD 的收敛性分析：其渐近收敛行为与同步 SGD 一致，且仅额外引入一个由误差缓冲控制的项。
+
+设 $bar e_t := (1/N) sum_(r=1)^N e_(r,t)$，当学习率满足 $eta <= 1/(2L)$ 时，经过 $T$ 次全局迭代，有：
+
+$ (1/T) sum_(t=0)^(T-1) bb(E)[||nabla f(w_t)||^2] <= (2 (f(w_0)-f^*))/(eta T) + (L eta sigma^2)/N + (L eta)/T sum_(t=0)^(T-1) bb(E)[||bar e_t||^2] $
+
+该上界表明：当按 $tau$ 选择规则使得通信尽量被掩盖、并使误差缓冲保持有界时，POLAR-SGD 的优化稳定性可以与基线同步训练保持接近。
+
+从解释角度看，该界由三部分组成：
+
+1) $O(1/T)$ 的优化项：随着迭代步数增长而下降；
+
+2) $sigma^2/N$ 的方差缩减项：与标准 DP 的均值 All-Reduce 一致，体现“更多 DP rank 降低随机梯度方差”；
+
+3) 与 $||bar e_t||^2$ 相关的误差项：体现前缀触发带来的近似偏差由 error feedback 控制。
+
+因此，$tau$ 的选择在理论与实践中都扮演折中角色：更早触发（更小 $tau$）带来更强的重叠潜力，但也可能使 $||bar e_t||$ 更大；更晚触发则降低误差项，但可能无法完全掩盖通信。
+
+== 实验评估
+
+=== 实验设置
+
+论文在 Cross-DC 约束下评估 POLAR-SGD，并与标准 DP+PP 基线（DDP+1F1B，迭代末阻塞 All-Reduce）以及放松同步的 LSGD（$k=4$）对比。实验配置如下。
+
+#figure(
+  table(
+    columns: (auto, auto),
+    align: left,
+    stroke: none,
+    table.hline(),
+    table.header([*组件*], [*配置*]),
+    table.hline(stroke: 0.5pt),
+    [Model], [LLaMA-2 7B],
+    [Dataset], [WikiText-103],
+    [Hardware], [32× NVIDIA A100 (40GB)，4 nodes],
+    [Network], [Bandwidth: 30 Gb/s；RTT: 50 ms],
+    [Parallelism], [Hybrid DP+PP（PP=8，DP=4）；batch=256；microbatch=32],
+    [Software], [PyTorch 2.5；NCCL 2.23；CUDA 12.1],
+    [Metrics], [吞吐（tokens/s），训练 loss],
+    table.hline(),
+  ),
+  caption: [实验设置（整理自论文 Table: setup）]
+) <tab:polar-setup>
+
+=== 端到端吞吐
 
 #figure(
   table(
@@ -258,554 +369,97 @@ $ hat(g)_(t,m)^"pred" = P(sum_(n=0)^m g_(t + n, m)^i, K, m) = (sum_(n=0)^m g_(t+
     align: center,
     stroke: none,
     table.hline(),
-    table.header([*时间步*], [*传统Local-SGD*], [*Polar-SGD (K=4)*]),
+    table.header([*方法*], [*吞吐 (tokens/s)*], [*相对加速比*]),
     table.hline(stroke: 0.5pt),
-    [t], [本地计算], [*Layer0反向完成* → 启动Comm₀],
-    [t+1], [本地计算], [*Layer1反向完成* → 启动Comm₁\nComm₀后台传输],
-    [t+2], [本地计算], [*Layer2反向完成* → 启动Comm₂\nComm₀,₁后台传输],
-    [t+3], [本地计算], [*Layer3反向完成* → 启动Comm₃\nComm₀,₁,₂后台传输],
-    [t+4], [*启动通信*\nGPU空闲等待], [误差补偿 + 参数更新\n*通信已完成80%*],
-    [t+5], [通信进行中\nGPU空闲], [新一轮前向传播],
-    [t+6], [通信完成\n参数更新], [正常训练],
+    [DDP+1F1B], [5,350], [1.00×],
+    [LSGD ($k=4$)], [9,433], [1.76×],
+    [POLAR-SGD], [10,016], [1.87×],
     table.hline(),
   ),
-  caption: [传统Local-SGD vs Polar-SGD通信时序对比]
-) <tab:local-sgd-vs-polar>
+  caption: [Cross-DC 约束下端到端吞吐（整理自论文 Table: throughput）]
+) <tab:polar-throughput>
 
-*通信掩盖率计算*：
+从吞吐对比可以看出：在 Cross-DC 约束下，基线 DDP+1F1B 的尾部同步显著拉长了单步时间；LSGD 通过减少同步强度/频率获得了较大吞吐提升，但其优化语义偏离基线更明显；POLAR-SGD 在保持“每步一次同步”的节奏下仍获得最高吞吐，说明“把同步从尾部挪到可重叠窗口”比“单纯减少同步”更契合 DP+PP 的系统结构。
 
-假设单层通信时间为 $T_("comm")$，计算时间为 $T_("comp")$，传统方法总时间：
+=== 收敛曲线与消融
 
-$ T_"traditional" = K dot T_"comp" + K dot T_"comm" $
-
-Polar-SGD方法中，第m层通信可以与后续K-m-1层的计算重叠：
-
-$ T_"overlap"^((m)) = min(T_"comm", (K-m-1) dot T_"comp") $
-
-$ T_"masked" = sum_(m=0)^(K-1) T_"overlap"^((m)) $
-
-有效通信时间为：
-
-$ T_"effective_comm" = K dot T_"comm" - T_"masked" $
-
-在 $T_"comp" approx T_"comm"$ 的理想情况下，掩盖率可达：
-
-$ "掩盖率" = T_"masked" / (K dot T_"comm") approx 50% tilde 75% $
-
-== 混合并行场景的通信优化
-
-=== 混合并行架构与挑战
-
-在广域分布式训练中，数据分散在不同地理区域（如不同数据中心），形成三层架构，如@tab:hybrid-arch 所示：
+论文进一步给出了按 step 对齐的 loss 曲线（验证 step-wise 稳定性）、按 wall-clock time 对齐的 loss 曲线（验证 time-to-target 提升），以及对“梯度缩放 / 误差反馈”两项关键机制的消融结果。
 
 #figure(
-  table(
-    columns: (auto, auto, auto, auto, auto),
-    align: center,
-    stroke: none,
-    table.hline(),
-    table.header([*层次*], [*并行类型*], [*通信模式*], [*网络特性*], [*主要挑战*]),
-    table.hline(stroke: 0.5pt),
-    [跨域层], [数据并行 (DP)], [All-Reduce], [高延迟 (50-200ms)\n低带宽 (1-10Gbps)], [带宽争用\n延迟掩盖困难],
-    [节点内层], [流水线并行 (PP)], [P2P Send/Recv], [低延迟 (≤1ms)\n高带宽 (NVLink 300GB/s)], [微批次调度\n气泡时间],
-    [张量层], [张量并行 (可选)], [All-Reduce], [极低延迟 (≤0.1ms)\n节点内通信], [通信频繁],
-    table.hline(),
-  ),
-  caption: [DP+PP 混合并行架构层次]
-) <tab:hybrid-arch>
-
-#h(0em) *核心矛盾*：跨域 All-Reduce 的长延迟无法被流水线的微批次执行完全掩盖，导致：
-
-1. *出口带宽争用*：多个 PP stage 同时发起 All-Reduce，竞争有限的跨域带宽
-
-2. *P2P 阻塞*：All-Reduce 占用通信资源时，stage 间 P2P 传输被阻塞
-
-3. *流水线气泡扩大*：P2P 延迟增加导致 stage 空闲时间延长
-
-=== 分块通信调度策略
-
-为解决上述问题，本文提出带优先级的分块通信调度器。完整算法如@algo:scheduler 所示：
-
-#figure(
-  table(
-    columns: (100%,),
-    align: left,
-    stroke: none,
-    table.hline(),
-    table.header([*算法 8：带优先级的分块通信调度器*]),
-    table.hline(stroke: 0.5pt),
+  rect(
+    width: 92%,
+    height: 190pt,
+    stroke: 0.5pt,
+    inset: 10pt,
     [
-      *输入：* stage 数量 $S$，分块大小 $"chunk_size"$，优先级策略 \
-      *输出：* 调度并执行所有通信操作 \
-      *全局数据结构：* P2P 队列、All-Reduce 队列、互斥锁、信号量、CUDA 流
-    ],
-    table.hline(stroke: 0.5pt),
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：loss vs steps 曲线]_ \
+          #v(8pt)
+          复用自论文 Fig.5（json_curves_by_steps.png）
+        ]
+      ]
+    ]
+  ),
+  caption: [训练 loss 随 step 变化：POLAR-SGD 与基线高度一致，优于 LSGD 的偏移（复用自论文 Fig.5）]
+) <fig:polar-loss-steps>
+
+按 step 对齐的结果用于回答“算法是否改变了每一步的优化行为”：如果曲线与基线接近，说明误差反馈确实在统计意义上补偿了前缀触发带来的偏差，使得训练轨迹没有明显漂移。
+
+#figure(
+  rect(
+    width: 92%,
+    height: 190pt,
+    stroke: 0.5pt,
+    inset: 10pt,
     [
-      #set par(leading: 0.65em)
-      #v(0.3em)
-      #h(-2em) *function* $"InitializeScheduler"(S, "chunk_size", "priority_policy")$ \
-      *1:*  #h(1.5em) $"P2P_Queue" <- "PriorityQueue"()$ \
-      *2:*  #h(1.5em) $"AllReduce_Queue" <- "FIFOQueue"()$ \
-      *3:*  #h(1.5em) $"P2P_Lock" <- "Mutex"()$ \
-      *4:*  #h(1.5em) $"AR_Semaphore" <- "Semaphore"("initial_value"=1)$ \
-      *5:*  #h(1.5em) ▷ 为每个 stage 创建独立的梯度和补偿空间 \
-      *6:*  #h(1.5em) *for* $s = 0$ *to* $S-1$ *do* \
-      *7:*  #h(3em) $"GradBuffer"[s] <- "AllocateTensor"("model_size")$ \
-      *8:*  #h(3em) $"CompensationBuffer"[s] <- "AllocateTensor"("model_size")$ \
-      *9:*  #h(3em) $"PartialGradAccum"[s] <- "AllocateTensor"("model_size")$ \
-      *10:* #h(1.5em) *end for* \
-      *11:* #h(1.5em) ▷ 创建通信线程池 \
-      *12:* #h(1.5em) $"CommThreadPool" <- "CreateThreadPool"("num_threads"=S+1)$ \
-      *13:* #h(1.5em) ▷ 启动调度守护线程 \
-      *14:* #h(1.5em) $"SpawnThread"("SchedulerDaemon", "priority"="HIGH")$ \
-      *15:* *end function* \
-      #v(0.5em)
-      #h(-2em) *function* $"SchedulerDaemon"()$ \
-      *16:* #h(1.5em) *while* $"Training_Active"$ *do* \
-      *17:* #h(3em) ▷ 阶段1：优先处理 P2P 请求 \
-      *18:* #h(3em) *if* $not "P2P_Queue"."isEmpty"()$ *then* \
-      *19:* #h(4.5em) $"p2p_req" <- "P2P_Queue"."pop"()$ \
-      *20:* #h(4.5em) *if* $"P2P_Lock"."tryAcquire"("timeout"=0)$ *then* \
-      *21:* #h(6em) ▷ 暂停正在进行的 All-Reduce（如果有） \
-      *22:* #h(6em) *if* $"AR_InProgress"$ *then* \
-      *23:* #h(7.5em) $"PauseAllReduceChunk"("current_AR_chunk")$ \
-      *24:* #h(6em) *end if* \
-      *25:* #h(6em) ▷ 执行 P2P 通信（使用专用 stream） \
-      *26:* #h(6em) *with* $"CUDAStream"("p2p_stream")$ *do* \
-      *27:* #h(7.5em) *if* $"p2p_req"."type" = "SEND"$ *then* \
-      *28:* #h(9em) $"dist"."send"("p2p_req"."tensor", "dst"="p2p_req"."next_stage")$ \
-      *29:* #h(7.5em) *else* \
-      *30:* #h(9em) $"dist"."recv"("p2p_req"."tensor", "src"="p2p_req"."prev_stage")$ \
-      *31:* #h(7.5em) *end if* \
-      *32:* #h(7.5em) $"p2p_stream"."synchronize"()$ \
-      *33:* #h(6em) *end with* \
-      *34:* #h(6em) ▷ 恢复 All-Reduce \
-      *35:* #h(6em) *if* $"AR_WasPaused"$ *then* \
-      *36:* #h(7.5em) $"ResumeAllReduceChunk"()$ \
-      *37:* #h(6em) *end if* \
-      *38:* #h(6em) $"P2P_Lock"."release"()$ \
-      *39:* #h(4.5em) *end if* \
-      *40:* #h(3em) *end if* \
-      *41:* #h(3em) ▷ 阶段2：处理 All-Reduce 块 \
-      *42:* #h(3em) *if* $not "AllReduce_Queue"."isEmpty"() and "P2P_Queue"."isEmpty"()$ *then* \
-      *43:* #h(4.5em) $"ar_chunk" <- "AllReduce_Queue"."pop"()$ \
-      *44:* #h(4.5em) $"AR_Semaphore"."acquire"()$ \
-      *45:* #h(4.5em) *with* $"CUDAStream"("allreduce_stream")$ *do* \
-      *46:* #h(6em) $"SubmitToThreadPool"("ExecuteAllReduceChunk", "ar_chunk")$ \
-      *47:* #h(4.5em) *end with* \
-      *48:* #h(3em) *end if* \
-      *49:* #h(3em) $"Sleep"("SCHEDULER_INTERVAL")$ #h(3em) ▷ 微秒级轮询 \
-      *50:* #h(1.5em) *end while* \
-      *51:* *end function*
-      #v(0.3em)
-    ],
-    table.hline(),
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：loss vs time 曲线]_ \
+          #v(8pt)
+          复用自论文 Fig.6（json_curves_by_time.png）
+        ]
+      ]
+    ]
   ),
-  caption: [带优先级的分块通信调度器]
-) <algo:scheduler>
+  caption: [训练 loss 随 wall-clock time 变化：POLAR-SGD 更快进入低 loss 区间（复用自论文 Fig.6）]
+) <fig:polar-loss-time>
 
-#v(0.5em)
+按 wall-clock time 对齐则更直接反映系统收益：即便 step-wise 曲线接近，只要单步时间被缩短，模型就能更快达到同等 loss 区间，从而提升 time-to-target。
 
 #figure(
-  table(
-    columns: (100%,),
-    align: left,
-    stroke: none,
-    table.hline(),
-    table.header([*函数：EnqueueP2P / EnqueueChunkedAllReduce / ExecuteAllReduceChunk*]),
-    table.hline(stroke: 0.5pt),
+  rect(
+    width: 92%,
+    height: 190pt,
+    stroke: 0.5pt,
+    inset: 10pt,
     [
-      #set par(leading: 0.65em)
-      #v(0.3em)
-      #h(-2em) *function* $"EnqueueP2P"("tensor", "stage_id", "direction")$ \
-      *1:*  #h(1.5em) $"priority" <- "HIGH_PRIORITY"$ \
-      *2:*  #h(1.5em) $"p2p_req" <- "CreateRequest"("tensor", "stage_id", "direction", "priority")$ \
-      *3:*  #h(1.5em) $"P2P_Queue"."push"("p2p_req")$ \
-      *4:*  #h(1.5em) ▷ 设置P2P标志，阻止新All-Reduce启动 \
-      *5:*  #h(1.5em) $"SetFlag"("P2P_PENDING", "TRUE")$ \
-      *6:*  *end function* \
-      #v(0.5em)
-      #h(-2em) *function* $"EnqueueChunkedAllReduce"("gradient_tensor", "stage_id", "num_chunks")$ \
-      *7:*  #h(1.5em) ▷ 将梯度分块 \
-      *8:*  #h(1.5em) $"chunks" <- "SplitTensor"("gradient_tensor", "num_chunks")$ \
-      *9:*  #h(1.5em) *for* $i = 0$ *to* $"num_chunks"-1$ *do* \
-      *10:* #h(3em) $"ar_req" <- "CreateRequest"("chunks"[i], "stage_id", i)$ \
-      *11:* #h(3em) $"AllReduce_Queue"."push"("ar_req")$ \
-      *12:* #h(1.5em) *end for* \
-      *13:* #h(1.5em) ▷ 记录分块信息用于后续重组 \
-      *14:* #h(1.5em) $"ChunkMetadata"["stage_id"] <- ("num_chunks", "chunk_shapes")$ \
-      *15:* *end function* \
-      #v(0.5em)
-      #h(-2em) *function* $"ExecuteAllReduceChunk"("chunk", "stream")$ \
-      *16:* #h(1.5em) *try:* \
-      *17:* #h(3em) *with* $"CUDAStream"("stream")$ *do* \
-      *18:* #h(4.5em) $"handle" <- "dist"."all_reduce"($ \
-      #h(6em) $"chunk", "op"="ReduceOp"."SUM",$ \
-      #h(6em) $"group"="InterNodeGroup", "async_op"="TRUE")$ \
-      *19:* #h(4.5em) ▷ 非阻塞等待，定期检查P2P抢占 \
-      *20:* #h(4.5em) *while* $not "handle"."is_completed"()$ *do* \
-      *21:* #h(6em) *if* $"P2P_PENDING"$ *then* \
-      *22:* #h(7.5em) ▷ P2P请求到来，让出资源 \
-      *23:* #h(7.5em) *return* $"PAUSED"$ \
-      *24:* #h(6em) *end if* \
-      *25:* #h(6em) $"Sleep"("CHECK_INTERVAL")$ \
-      *26:* #h(4.5em) *end while* \
-      *27:* #h(4.5em) $"handle"."wait"()$ \
-      *28:* #h(3em) *end with* \
-      *29:* #h(1.5em) *finally:* \
-      *30:* #h(3em) $"AR_Semaphore"."release"()$ \
-      *31:* #h(1.5em) *end try* \
-      *32:* #h(1.5em) *return* $"COMPLETED"$ \
-      *33:* *end function*
-      #v(0.3em)
-    ],
-    table.hline(),
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：消融实验 loss 曲线]_ \
+          #v(8pt)
+          复用自论文 Fig.7（json_curves_by_steps_ablation.png）
+        ]
+      ]
+    ]
   ),
-  caption: [调度辅助函数]
-) <algo:scheduler-helper>
+  caption: [消融实验：去除梯度缩放或误差反馈会带来轻微收敛退化或稳定性风险（复用自论文 Fig.7）]
+) <fig:polar-ablation>
 
-=== 梯度补偿机制
+消融结果强调了两个机制的必要性：
 
-在分块All-Reduce策略下，每个stage无需等待所有microbatch完成即可发送部分梯度。为保证收敛性，需要维护补偿空间。
+1) *梯度缩放*：若不做 $(M/tau)$ 缩放，则送入同步的梯度尺度偏小，容易导致更新量不足并拉慢收敛。
 
-#figure(
-  table(
-    columns: (100%,),
-    align: left,
-    stroke: none,
-    table.hline(),
-    table.header([*算法 9：基于补偿空间的部分梯度传输*]),
-    table.hline(stroke: 0.5pt),
-    [
-      *输入：* stage_id $s$，微批次总数 $M$，发送阈值 $tau$ (例如 $M\/2$) \
-      *输出：* 正确的梯度更新 \
-      *全局状态：* $"GradAccum"[s]$（当前累积的梯度），$"CompBuffer"[s]$（补偿缓冲区），\
-      #h(4.5em) $"SentGrad"[s]$（已发送的梯度值），$"MicroBatchCounter"[s]$（已完成的microbatch计数）
-    ],
-    table.hline(stroke: 0.5pt),
-    [
-      #set par(leading: 0.65em)
-      #v(0.3em)
-      #h(-2em) *function* $"OnMicroBatchComplete"(s, "micro_batch_id", "local_grad")$ \
-      *1:*  #h(1.5em) ▷ 累积当前microbatch的梯度 \
-      *2:*  #h(1.5em) $"GradAccum"[s] <- "GradAccum"[s] + "local_grad"$ \
-      *3:*  #h(1.5em) $"MicroBatchCounter"[s] <- "MicroBatchCounter"[s] + 1$ \
-      *4:*  #h(1.5em) ▷ 判断是否达到发送阈值 \
-      *5:*  #h(1.5em) *if* $"MicroBatchCounter"[s] = tau$ *then* \
-      *6:*  #h(3em) ▷ 阶段1: 计算预测梯度 \
-      *7:*  #h(3em) $"completed_ratio" <- tau \/ M$ \
-      *8:*  #h(3em) $"predicted_total" <- "GradAccum"[s] \/ "completed_ratio"$ \
-      *9:*  #h(3em) ▷ 加入上一轮的补偿项 \
-      *10:* #h(3em) $"grad_to_send" <- "predicted_total" + "CompBuffer"[s]$ \
-      *11:* #h(3em) ▷ 阶段2: 分块发送 \
-      *12:* #h(3em) $"num_chunks" <- "CalculateOptimalChunks"("grad_to_send", "bandwidth")$ \
-      *13:* #h(3em) $"EnqueueChunkedAllReduce"("grad_to_send", s, "num_chunks")$ \
-      *14:* #h(3em) ▷ 记录已发送的值 \
-      *15:* #h(3em) $"SentGrad"[s] <- "grad_to_send"$ \
-      *16:* #h(1.5em) *end if* \
-      *17:* #h(1.5em) ▷ 阶段3: 所有microbatch完成后计算补偿 \
-      *18:* #h(1.5em) *if* $"MicroBatchCounter"[s] = M$ *then* \
-      *19:* #h(3em) ▷ 等待All-Reduce完成 \
-      *20:* #h(3em) $"SynchronizeAllReduceForStage"(s)$ \
-      *21:* #h(3em) ▷ 计算实际总梯度 \
-      *22:* #h(3em) $"actual_total" <- "GradAccum"[s]$ \
-      *23:* #h(3em) ▷ 更新补偿项 \
-      *24:* #h(3em) $"CompBuffer"[s] <- ("actual_total" - "SentGrad"[s]) + "CompBuffer"[s]$ \
-      *25:* #h(3em) ▷ 阶段4: 应用梯度（已经包含All-Reduce平均） \
-      *26:* #h(3em) *for each* $"param" p$ *in* $"Stage"[s]."parameters"()$ *do* \
-      *27:* #h(4.5em) $p."grad" <- "SentGrad"[s][p] \/ "world_size"$ \
-      *28:* #h(3em) *end for* \
-      *29:* #h(3em) ▷ 重置计数器和累积器 \
-      *30:* #h(3em) $"MicroBatchCounter"[s] <- 0$ \
-      *31:* #h(3em) $"GradAccum"[s] <- "ZeroTensor"()$ \
-      *32:* #h(1.5em) *end if* \
-      *33:* *end function* \
-      #v(0.5em)
-      #h(-2em) *function* $"CalculateOptimalChunks"("tensor", "available_bandwidth")$ \
-      *34:* #h(1.5em) $"tensor_size" <- "tensor"."numel"() times "tensor"."element_size"()$ \
-      *35:* #h(1.5em) ▷ 根据经验公式计算最优分块数 \
-      *36:* #h(1.5em) ▷ 目标: 单块传输时间 ≈ 单个microbatch的P2P时间 \
-      *37:* #h(1.5em) $"estimated_p2p_time" <- "GetAverageP2PLatency"()$ \
-      *38:* #h(1.5em) $"chunk_size" <- "available_bandwidth" times "estimated_p2p_time"$ \
-      *39:* #h(1.5em) $"num_chunks" <- ceil("tensor_size" \/ "chunk_size")$ \
-      *40:* #h(1.5em) ▷ 限制分块数量在合理范围 \
-      *41:* #h(1.5em) $"num_chunks" <- "clamp"("num_chunks", "min"=4, "max"=32)$ \
-      *42:* #h(1.5em) *return* $"num_chunks"$ \
-      *43:* *end function*
-      #v(0.3em)
-    ],
-    table.hline(),
-  ),
-  caption: [基于补偿空间的部分梯度传输]
-) <algo:compensation>
-
-=== 多流并发机制
-
-为避免通信死锁和实现真正的并发，系统采用CUDA多流机制。
-
-#figure(
-  table(
-    columns: (auto, auto, auto, auto, auto),
-    align: center,
-    stroke: none,
-    table.hline(),
-    table.header([*CUDA流*], [*用途*], [*优先级*], [*关联操作*], [*同步点*]),
-    table.hline(stroke: 0.5pt),
-    [default_stream], [前向/反向计算], [中], [forward()\nbackward()], [每个microbatch结束],
-    [p2p_stream], [Stage间激活/梯度传输], [*最高*], [send_activation()\nrecv_gradient()], [stage边界],
-    [allreduce_stream], [跨域梯度同步], [低], [chunked_all_reduce()], [全局同步点],
-    [compensation_stream], [误差补偿计算], [中], [compute_error()\nupdate_buffer()], [参数更新前],
-    table.hline(),
-  ),
-  caption: [多流通信架构]
-) <tab:multi-stream>
-
-#h(0em) *流间同步策略*：
-
-#figure(
-  table(
-    columns: (100%,),
-    align: left,
-    stroke: none,
-    table.hline(),
-    table.header([*算法 10：多流同步策略*]),
-    table.hline(stroke: 0.5pt),
-    [
-      #set par(leading: 0.65em)
-      #v(0.3em)
-      #h(-2em) *function* $"SendActivation"("tensor", "dst_stage")$ \
-      *1:*  #h(1.5em) ▷ P2P发送前：确保计算完成 \
-      *2:*  #h(1.5em) $"event_comp" <- "RecordEvent"("default_stream")$ \
-      *3:*  #h(1.5em) $"WaitEvent"("p2p_stream", "event_comp")$ \
-      *4:*  #h(1.5em) *with* $"Stream"("p2p_stream")$ *do* \
-      *5:*  #h(3em) $"dist"."send"("tensor", "dst"="dst_stage")$ \
-      *6:*  #h(1.5em) *end with* \
-      *7:*  *end function* \
-      #v(0.5em)
-      #h(-2em) *function* $"LaunchChunkedAllReduce"("grad_chunk")$ \
-      *8:*  #h(1.5em) ▷ All-Reduce前：确保梯度累积完成 \
-      *9:*  #h(1.5em) $"event_grad" <- "RecordEvent"("default_stream")$ \
-      *10:* #h(1.5em) $"WaitEvent"("allreduce_stream", "event_grad")$ \
-      *11:* #h(1.5em) *with* $"Stream"("allreduce_stream")$ *do* \
-      *12:* #h(3em) $"handle" <- "dist"."all_reduce"("grad_chunk", "async_op"="True")$ \
-      *13:* #h(1.5em) *end with* \
-      *14:* #h(1.5em) *return* $"handle"$ \
-      *15:* *end function* \
-      #v(0.5em)
-      #h(-2em) *function* $"SynchronizeBeforeUpdate"()$ \
-      *16:* #h(1.5em) ▷ 参数更新前：同步所有流 \
-      *17:* #h(1.5em) $"default_stream"."synchronize"()$ \
-      *18:* #h(1.5em) $"p2p_stream"."synchronize"()$ \
-      *19:* #h(1.5em) $"allreduce_stream"."synchronize"()$ \
-      *20:* #h(1.5em) $"compensation_stream"."synchronize"()$ \
-      *21:* *end function*
-      #v(0.3em)
-    ],
-    table.hline(),
-  ),
-  caption: [多流同步策略]
-) <algo:multi-stream>
-
-=== 完整训练流程集成
-
-#figure(
-  table(
-    columns: (100%,),
-    align: left,
-    stroke: none,
-    table.hline(),
-    table.header([*算法 11：DP+PP混合并行完整训练流程*]),
-    table.hline(stroke: 0.5pt),
-    [
-      *输入：* Model $M$，Dataset $D$，stage数量 $S$，微批次数 $M$，总节点数 $W$，本地rank $r$ \
-      *输出：* 训练完成的模型
-    ],
-    table.hline(stroke: 0.5pt),
-    [
-      #set par(leading: 0.65em)
-      #v(0.3em)
-      #h(-2em) ▷ *初始化阶段* \
-      *1:*  #h(1.5em) $"stage_id" <- r mod S$ \
-      *2:*  #h(1.5em) $"dp_rank" <- r div S$ \
-      *3:*  #h(1.5em) $"model_partition" <- M."stages"["stage_id"]$ \
-      *4:*  #h(1.5em) $"InitializeScheduler"(S, "chunk_size"=4"MB", "priority"="PP_FIRST")$ \
-      *5:*  #h(1.5em) $"CreateProcessGroups"("dp_group", "pp_group")$ \
-      #v(0.3em)
-      #h(-2em) ▷ *训练主循环* \
-      *6:*  #h(1.5em) *for* $"epoch" = 1$ *to* $"max_epochs"$ *do* \
-      *7:*  #h(3em) *for* $"batch_idx" = 1$ *to* $"num_batches"$ *do* \
-      *8:*  #h(4.5em) ▷ 将batch分割为microbatches \
-      *9:*  #h(4.5em) $"microbatches" <- "SplitBatch"("GetBatch"(D, "batch_idx"), M)$ \
-      *10:* #h(4.5em) ▷ 流水线执行 (1F1B调度) \
-      *11:* #h(4.5em) *for* $"mb_id" = 0$ *to* $M-1$ *do* \
-      *12:* #h(6em) ▷ *前向传播* \
-      *13:* #h(6em) *if* $"stage_id" = 0$ *then* \
-      *14:* #h(7.5em) $"input_mb" <- "microbatches"["mb_id"]$ \
-      *15:* #h(6em) *else* \
-      *16:* #h(7.5em) ▷ 从前一stage接收 (使用p2p_stream) \
-      *17:* #h(7.5em) $"input_mb" <- "RecvActivation"("stage_id" - 1, "p2p_stream")$ \
-      *18:* #h(6em) *end if* \
-      *19:* #h(6em) *with* $"Stream"("default_stream")$ *do* \
-      *20:* #h(7.5em) $"activation" <- "ForwardPass"("model_partition", "input_mb")$ \
-      *21:* #h(6em) *end with* \
-      *22:* #h(6em) *if* $"stage_id" < S - 1$ *then* \
-      *23:* #h(7.5em) ▷ 发送到下一stage (使用p2p_stream) \
-      *24:* #h(7.5em) $"SendActivation"("activation", "stage_id" + 1, "p2p_stream")$ \
-      *25:* #h(6em) *end if* \
-      *26:* #h(6em) ▷ *反向传播 (1F1B策略: 前向后立即反向)* \
-      *27:* #h(6em) *if* $"mb_id" >= S$ *then* #h(1em) ▷ Warm-up阶段后开始反向 \
-      *28:* #h(7.5em) *if* $"stage_id" = S - 1$ *then* \
-      *29:* #h(9em) $"loss" <- "ComputeLoss"("activation", "labels"["mb_id" - S])$ \
-      *30:* #h(9em) $"grad_output" <- "loss"."backward"()$ \
-      *31:* #h(7.5em) *else* \
-      *32:* #h(9em) $"grad_output" <- "RecvGradient"("stage_id" + 1, "p2p_stream")$ \
-      *33:* #h(7.5em) *end if* \
-      *34:* #h(7.5em) *with* $"Stream"("default_stream")$ *do* \
-      *35:* #h(9em) $"grad_input" <- "BackwardPass"("model_partition", "grad_output")$ \
-      *36:* #h(7.5em) *end with* \
-      *37:* #h(7.5em) ▷ 累积局部梯度 \
-      *38:* #h(7.5em) $"OnMicroBatchComplete"("stage_id", "mb_id" - S, "grad_input")$ \
-      *39:* #h(7.5em) *if* $"stage_id" > 0$ *then* \
-      *40:* #h(9em) $"SendGradient"("grad_input", "stage_id" - 1, "p2p_stream")$ \
-      *41:* #h(7.5em) *end if* \
-      *42:* #h(6em) *end if* \
-      *43:* #h(4.5em) *end for* \
-      *44:* #h(4.5em) ▷ *Cool-down阶段: 完成剩余反向传播* \
-      *45:* #h(4.5em) *for* $"remaining" = 1$ *to* $S - 1$ *do* \
-      *46:* #h(6em) $"mb_id" <- M + "remaining" - 1$ \
-      *47:* #h(6em) ▷ (同上反向传播逻辑) \
-      *48:* #h(4.5em) *end for* \
-      *49:* #h(4.5em) ▷ *等待All-Reduce完成* \
-      *50:* #h(4.5em) $"SynchronizeAllReduceForStage"("stage_id")$ \
-      *51:* #h(4.5em) ▷ *参数更新* \
-      *52:* #h(4.5em) $"SynchronizeBeforeUpdate"()$ \
-      *53:* #h(4.5em) *for* $"param"$ *in* $"model_partition"."parameters"()$ *do* \
-      *54:* #h(6em) ▷ 梯度已包含All-Reduce的平均值 \
-      *55:* #h(6em) $"param"."data" <- "param"."data" - "learning_rate" times "param"."grad"$ \
-      *56:* #h(4.5em) *end for* \
-      *57:* #h(4.5em) ▷ 清理状态 \
-      *58:* #h(4.5em) $"ZeroGradients"("model_partition")$ \
-      *59:* #h(3em) *end for* \
-      *60:* #h(1.5em) *end for* \
-      *61:* #h(1.5em) *return* $"model_partition"$
-      #v(0.3em)
-    ],
-    table.hline(),
-  ),
-  caption: [DP+PP混合并行完整训练流程]
-) <algo:dp-pp-training>
-
-== 性能分析与理论保证
-
-=== 通信复杂度分析
-
-#figure(
-  table(
-    columns: (auto, auto, auto, auto, auto),
-    align: center,
-    stroke: none,
-    table.hline(),
-    table.header([*策略*], [*通信次数*], [*单次数据量*], [*可掩盖时间*], [*总通信时间*]),
-    table.hline(stroke: 0.5pt),
-    [传统Local-SGD], [1次All-Reduce\n每T步], [$|theta|$], [0], [$T_("AR")(|theta|)$],
-    [Polar-SGD], [K次Broadcast\n交错执行], [$|theta|\/K$], [$(K-1) dot T_("comp")$], [$T_("AR")(|theta|) - 0.5T_("AR")$],
-    [传统DP+PP], [S次All-Reduce\n同时发起], [$|theta_s|$], [部分microbatch], [$max_s T_("AR")(|theta_s|)$],
-    [优化DP+PP], [S×C次All-Reduce\n分块交错], [$|theta_s|\/C$], [大部分microbatch\n+P2P时间], [$sum_s sum_c T_("AR")(|theta_s|\/C)$\n交错执行],
-    table.hline(),
-  ),
-  caption: [不同策略的通信复杂度对比]
-) <tab:complexity>
-
-#h(0em) 其中：
-- $T_("AR")(x)$: 传输 $x$ 大小数据的All-Reduce时间
-- $T_("comp")$: 单层反向传播时间
-- $|theta|$: 模型总参数量
-- $|theta_s|$: stage $s$ 的参数量
-- $C$: 分块数量
-
-=== 收敛性保证
-
-*定理1 (Polar-SGD收敛性)*：在以下假设下：
-
-1. 损失函数$L$-光滑：$||nabla f(x) - nabla f(y)|| <= L||x-y||$
-
-2. 梯度有界：$bb(E)[||g_t||^2] <= G^2$
-
-3. 预测误差有界：$||e_t|| <= epsilon dot ||g_t||$，其中 $epsilon < 0.5$
-
-Polar-SGD在$T$步后的期望优化误差满足：
-
-$ bb(E)[f(theta_T)] - f(theta^*) <= (L||theta_0 - theta^*||^2)/(2 eta T) + (eta L G^2)/2 (1 + 2 epsilon + epsilon^2) $
-
-*证明思路*：
-
-1. 将预测梯度分解为真实梯度加误差项
-
-1. 将预测梯度分解为真实梯度加误差项
-
-2. 利用误差补偿机制，证明误差项在期望意义下被抵消
-
-3. 应用标准SGD收敛性分析框架
-
-*定理2 (补偿机制无偏性)*：
-
-$ bb(E)_(t=1)^T [sum_(i=1)^K (g_("pred",t)^i - g_("true",t)^i)] = 0 $
-
-即长期来看，预测误差的累积期望为零。
-
-=== 实际加速比估算
-
-#figure(
-  table(
-    columns: (auto, auto, auto, auto, auto, auto),
-    align: center,
-    stroke: none,
-    table.hline(),
-    table.header([*网络类型*], [*带宽*], [*延迟*], [$T_("comm")\/T_("comp")$], [*Polar-SGD加速比*], [*DP+PP优化加速比*]),
-    table.hline(stroke: 0.5pt),
-    [高速InfiniBand], [100Gbps], [≤5μs], [0.1], [1.05×], [1.1×],
-    [数据中心以太网], [10Gbps], [50μs], [1.0], [*1.4-1.6×*], [*1.5-1.8×*],
-    [跨地域广域网], [1Gbps], [50ms], [5.0], [*1.8-2.2×*], [*2.0-2.5×*],
-    [边缘计算网络], [100Mbps], [100ms], [20.0], [*2.5-3.0×*], [*2.8-3.5×*],
-    table.hline(),
-  ),
-  caption: [不同网络条件下的理论加速比]
-) <tab:speedup>
-
-加速比计算公式：
-
-$ "Speedup" = T_("traditional") / T_("optimized") = (T_("comp") + T_("comm")) / (T_("comp") + T_("comm")^"effective") $
-
-其中 $T_("comm")^"effective" = T_("comm") times (1 - "掩盖率")$
-
-== 实现优化技巧
-
-#figure(
-  table(
-    columns: (auto, auto, auto, auto),
-    align: center,
-    stroke: none,
-    table.hline(),
-    table.header([*优化技术*], [*目标问题*], [*实现要点*], [*性能增益*]),
-    table.hline(stroke: 0.5pt),
-    [张量扁平化], [减少通信原语调用], [单次Concatenate\n预先计算metadata], [减少20-30%通信开销],
-    [异步操作], [避免阻塞等待], [async_op=True\n事件驱动回调], [CPU利用率提升40%],
-    [内存池], [减少分配开销], [预分配缓冲区\n循环复用], [减少10-15%内存碎片],
-    [梯度压缩], [降低传输数据量], [FP16/INT8量化\nTop-K稀疏化], [带宽需求降低50-75%],
-    [CUDA Graph], [减少kernel启动开销], [捕获计算图\n重放执行], [小模型加速15-20%],
-    table.hline(),
-  ),
-  caption: [关键实现优化技术总结]
-) <tab:optimization-techniques>
+2) *误差反馈*：若不维护 residual，则后缀 micro-batch 的信息无法以可控形式回流到后续迭代，可能出现收敛退化或稳定性风险。
 
 == 本章小结
 
-本章提出了两种针对不同分布式训练场景的通信优化策略：
+本章围绕 Cross-DC 的 DP+PP 训练瓶颈（同步尾部）总结并对齐了 POLAR-SGD 的核心设计：
 
-1. *Polar-SGD*：通过分层梯度预测和误差补偿机制，在Local-SGD场景下实现50-75%的通信时间掩盖，特别适合高延迟网络环境。
+1. 采用跨 DC DP、DC 内 PP 的层次化并行，避免跨 DC 激活/数据搬运，但同步尾部成为关键瓶颈。
 
-2. *DP+PP优化*：通过分块All-Reduce、优先级调度和梯度补偿空间，解决混合并行中的带宽争用问题，在跨域训练场景下可获得1.5-2.5倍加速。
+2. 在每迭代只触发一次 All-Reduce 的前提下，通过选择截断点 $tau$，将 All-Reduce 放入独立通信 stream 并与后续反向传播重叠，缩短迭代尾部。
 
-两种方法均保持了原算法的收敛性保证，通过理论分析和算法设计确保了训练的正确性。
+3. 通过前缀缩放与误差反馈，将后缀 micro-batch 的梯度信息以残差形式注入下一迭代，兼顾系统效率与优化稳定性；论文实验在 30 Gb/s、50 ms RTT 的 Cross-DC 约束下实现 1.87× 吞吐提升，并保持与基线接近的 step-wise 收敛。
 
 #pagebreak()

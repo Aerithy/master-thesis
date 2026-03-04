@@ -14,6 +14,26 @@ $ "Communication Volume" = N times "sizeof"("float32") = N times 4 "bytes" $
 
 以 ResNet-50（约 2560 万参数）为例，每次迭代需要传输约 97.7 MB 数据。而对于 GPT-3 规模的模型，单次通信量将达到 700 GB，在带宽受限的跨数据中心场景下，通信时间可能占据总训练时间的 80% 以上。
 
+#figure(
+  rect(
+    width: 80%,
+    height: 180pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：分布式训练通信瓶颈示意图]_ \
+          #v(10pt)
+          展示计算时间与通信时间的占比 \
+          以及随着节点数增加通信开销的增长趋势
+        ]
+      ]
+    ]
+  ),
+  caption: [大规模分布式训练中的通信瓶颈]
+) <fig:comm-bottleneck>
+
 === 现有梯度压缩方法的局限性
 
 为降低通信开销，学术界和工业界提出了多种梯度压缩方法：
@@ -36,6 +56,26 @@ $ "Communication Volume" = N times "sizeof"("float32") = N times 4 "bytes" $
 2. *归一化*：通过一阶矩和二阶矩的比值进行自适应归一化
 3. *随机量化*：采用伯努利采样实现无偏量化
 4. *误差补偿*：保留量化残差用于下一次迭代
+
+#figure(
+  rect(
+    width: 90%,
+    height: 200pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：1-bit Adam 算法核心流程图]_ \
+          #v(10pt)
+          包含：动量更新 -> 归一化 -> 随机量化 -> 误差补偿 \
+          的数据流向
+        ]
+      ]
+    ]
+  ),
+  caption: [1-bit Adam 算法核心工作流程]
+) <fig:onebit-adam-workflow>
 
 === 数学表达
 
@@ -122,6 +162,26 @@ $
 2. *构造位掩码*：创建权重向量 $bold(w)$，用于将二进制位映射到对应的数值位置。
 
 $ bold(w) = [2^7, 2^6, 2^5, 2^4, 2^3, 2^2, 2^1, 2^0] = [128, 64, 32, 16, 8, 4, 2, 1] $
+
+#figure(
+  rect(
+    width: 100%,
+    height: 120pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：位打包 (Bit-Packing) 示意图]_ \
+          #v(10pt)
+          展示 8 个 1-bit 梯度如何打包进 1 个 uint8 字节 \
+          以及对应的位掩码操作
+        ]
+      ]
+    ]
+  ),
+  caption: [位打包与解包过程示意图]
+) <fig:bit-packing>
 
 3. *批量压缩*：将输入张量重塑为 $(-1, 8)$ 的矩阵形式，每行包含 8 个 bit 值，然后与位掩码向量进行逐元素乘法并求和，得到对应的 uint8 表示：
 
@@ -241,5 +301,71 @@ OneBitAdamReduce 函数封装了完整的量化通信过程，其内部实现如
 1. *透明性*：对上层训练代码几乎无侵入，仅需通过配置开关即可启用或禁用量化。
 
 2. *灵活性*：量化器作为独立模块，可以方便地替换为其他压缩算法，支持算法的快速迭代和对比实验。
+
+#figure(
+  rect(
+    width: 90%,
+    height: 220pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：系统架构集成示意图]_ \
+          #v(10pt)
+          展示训练循环、量化通信钩子、NCCL通信库 \
+          以及压缩/解压模块的交互关系
+        ]
+      ]
+    ]
+  ),
+  caption: [1-bit Adam 量化方法在分布式框架中的集成架构]
+) <fig:system-arch>
+
+== 实验验证
+
+=== 实验设置
+
+// TODO: 补充实验设置的具体细节
+本章节将详细介绍实验环境、数据集选择、基线模型以及评价指标。实验旨在评估 1-bit Adam 量化方法在分布式训练中的通信压缩效果、收敛性能以及端到端训练速度的提升。
+
+=== 实验结果与分析
+
+// TODO: 补充具体的实验数据和图表
+本节将展示不同规模模型（如 ResNet-50, BERT-Large）在不同网络带宽条件下的训练曲线对比。重点分析量化引入的误差对模型最终精度的影响，以及通信量减少带来的训练加速比。
+
+#figure(
+  grid(
+    columns: (1fr, 1fr),
+    gutter: 10pt,
+    rect(
+      width: 100%,
+      height: 150pt,
+      stroke: 0.5pt,
+      [
+        #align(center + horizon)[
+          _[此处插入：收敛曲线对比图]_ \
+          (Baseline vs 1-bit Adam)
+        ]
+      ]
+    ),
+    rect(
+      width: 100%,
+      height: 150pt,
+      stroke: 0.5pt,
+      [
+        #align(center + horizon)[
+          _[此处插入：训练吞吐量/加速比图]_ \
+          (不同带宽下的加速效果)
+        ]
+      ]
+    )
+  ),
+  caption: [1-bit Adam 方法的收敛性与训练加速比验证]
+) <fig:experiments-result>
+
+== 本章小结
+
+本章详细介绍了基于 1-bit Adam 的梯度量化压缩方法。首先，从分布式训练的通信瓶颈出发，阐述了低比特量化的必要性和现有方法的局限性。随后，深入分析了 1-bit Adam 的量化原理，包括动量维护、自适应归一化和误差补偿机制。接着，详细描述了算法的实现细节，涉及位打包优化、反量化聚合以及其在分布式训练框架中的集成方案。最后，通过实验验证展示了该方法在减少通信开销、保持模型收敛性方面的重要优势，证明了其在大规模分布式深度学习中的应用价值。
 
 #pagebreak()

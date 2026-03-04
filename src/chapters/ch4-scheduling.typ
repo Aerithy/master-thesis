@@ -1,12 +1,38 @@
-= 高效集合通信调度策略 
+= 基于流水线的层次化梯度通信调度策略
 
-== 研究动机
+== 研究背景与问题分析
 
-在分布式深度学习训练中，梯度同步的通信开销已成为制约训练效率的关键瓶颈。传统的 All-Reduce 操作采用同步阻塞方式，所有进程必须等待通信完成才能继续计算，导致计算资源利用率低下。特别是在多节点集群环境中，节点内（Intra-node）与节点间（Inter-node）的通信带宽存在显著差异——节点内通信通过 NVLink 或 PCIe 可达到数百 GB/s，而节点间通信受限于网络带宽（通常为 10-100 Gbps），这种带宽不对称性进一步加剧了通信瓶颈。
+=== 异构集群通信特征
+
+在分布式深度学习训练中，梯度同步的通信开销已成为制约训练效率的关键瓶颈。特别是在多节点集群环境中，通信架构表现出显著的异构性（Heterogeneity）：节点内（Intra-node）通信通过高速 NVLink 或 PCIe 完成，带宽可达数百 GB/s；而节点间（Inter-node）通信受限于以太网或 InfiniBand 带宽，通常仅为 10-100 Gbps。这种巨大的带宽不对称性（Bandwidth Asymmetry）——通常达到 10:1 甚至 50:1——使得跨节点通信成为系统的主要性能短板。
+
+=== 传统同步算法的局限
+
+传统的 All-Reduce 操作（如 Ring All-Reduce 或 Tree All-Reduce）通常采用同步阻塞方式，所有进程必须在此阶段等待通信完成才能继续进行下一轮迭代的计算。在异构网络环境下，这种扁平化的通信模式会导致高速的节点内互联被低速的节点间链路拖累，造成严重的计算资源闲置。
+
+#figure(
+  rect(
+    width: 80%,
+    height: 180pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：异构网络下 All-Reduce 通信瓶颈示意图]_ \
+          #v(10pt)
+          包含：High BW Intra-node 通信 vs Low BW Inter-node 通信 \
+          及扁平化通信导致的同步等待现象
+        ]
+      ]
+    ]
+  ),
+  caption: [异构带宽不对称性导致的通信瓶颈]
+) <fig:comm-asymmetry>
 
 为解决上述问题，本研究提出了一种*基于流水线的层次化 All-Reduce 方法*（Pipelining Hierarchy All-Reduce），通过张量分块、双流并行和层次化通信策略，实现计算与通信的高度重叠，显著降低梯度同步延迟。
 
-== 算法设计
+== 层次化流水线调度模型
 
 === 层次化通信拓扑
 
@@ -21,6 +47,27 @@
 - *本地归约（Local Reduce）*：节点内 GPU 先进行梯度聚合
 - *跨节点归约（Inter Reduce）*：节点代表进程进行跨节点聚合
 - *本地广播（Local Broadcast）*：节点代表将结果广播给本地其他 GPU
+
+
+#figure(
+  rect(
+    width: 85%,
+    height: 200pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：层次化通信拓扑结构图]_ \
+          #v(10pt)
+          展示 Local Group 和 Inter Group 的划分 \
+          以及 Local Reduce -> Inter Reduce -> Local Broadcast 的数据流向
+        ]
+      ]
+    ]
+  ),
+  caption: [层次化 All-Reduce 通信拓扑与数据流向]
+) <fig:hierarchical-topo>
 
 === 流水线分块策略
 
@@ -43,9 +90,30 @@ $ "chunk_size" = "tensor_size" / (8 tilde 16) $
 
 两个流通过 CUDA Event 实现细粒度同步，确保数据依赖正确性的同时最大化并行度。
 
-== 算法实现
+== 三阶段流水线调度算法
 
 完整算法流程的时序图如下所示：
+
+#figure(
+  rect(
+    width: 100%,
+    height: 180pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：流水线三阶段调度时序图]_ \
+          #v(10pt)
+          展示 Warmup -> Pipelining -> Cooling 三个阶段的 \
+          Stream 并行与 Event 同步关系 \
+          (可保留原始 ASCII图作为参考，但此处为正式矢量图占位)
+        ]
+      ]
+    ]
+  ),
+  caption: [基于双流并行的三阶段流水线调度时序]
+) <fig:pipeline-scheduler>
 
 #figure(
   rect(
@@ -183,7 +251,7 @@ $ "chunk_size" = "tensor_size" / (8 tilde 16) $
   caption: [冷却阶段伪代码]
 ) <code:cooling>
 
-== 复杂度分析
+== 理论性能与开销分析
 
 === 时间复杂度
 
@@ -205,9 +273,30 @@ $ "Speedup" = (T_"local" + T_"inter" + T_"broadcast") / (max(T_"local", T_"inter
 - 张量分块：采用视图操作，不增加额外内存
 - 总体空间复杂度：$O(N_"chunks")$，对于典型的分块数（8-16），开销可忽略
 
-== 集成到训练流程
+== 系统集成与工程优化
 
 在训练循环中，该方法与梯度累积结合使用，具体实现如@algo:integration 所示：
+
+#figure(
+  rect(
+    width: 90%,
+    height: 180pt,
+    stroke: 0.5pt,
+    inset: 10pt,
+    [
+      #align(center + horizon)[
+        #text(size: 10pt)[
+          _[此处应插入：系统集成与数据流架构图]_ \
+          #v(10pt)
+          展示 梯度产生 -> Buffer 累积 -> \
+          Tensor Buffer 展平 -> 流水线调度器 -> NCCL 后端 \
+          的完整路径
+        ]
+      ]
+    ]
+  ),
+  caption: [流水线调度器在训练流程中的集成架构]
+) <fig:system-integration>
 
 #figure(
   table(
@@ -247,7 +336,7 @@ $ "Speedup" = (T_"local" + T_"inter" + T_"broadcast") / (max(T_"local", T_"inter
   caption: [训练流程集成算法]
 ) <algo:integration>
 
-== 实验验证
+== 实验评估
 
 === 实验环境
 
@@ -299,6 +388,36 @@ $ "Speedup" = (T_"local" + T_"inter" + T_"broadcast") / (max(T_"local", T_"inter
 === 端到端训练加速
 
 @tab:e2e-speedup 展示了端到端训练性能的提升。
+
+#figure(
+  grid(
+    columns: (1fr, 1fr),
+    gutter: 10pt,
+    rect(
+      width: 100%,
+      height: 150pt,
+      stroke: 0.5pt,
+      [
+        #align(center + horizon)[
+          _[此处插入：端到端吞吐量对比直方图]_ \
+          (Images/sec)
+        ]
+      ]
+    ),
+    rect(
+      width: 100%,
+      height: 150pt,
+      stroke: 0.5pt,
+      [
+        #align(center + horizon)[
+          _[此处插入：训练迭代耗时分解图]_ \
+          (Comm Time vs Comp Time)
+        ]
+      ]
+    )
+  ),
+  caption: [端到端训练性能对比与耗时分解]
+) <fig:e2e-result>
 
 #figure(
   table(
