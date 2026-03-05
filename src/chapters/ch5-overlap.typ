@@ -1,3 +1,6 @@
+#import "../../template/src/algorithm.typ": pseudocode-list
+#import "../../template/src/constant.typ": font-type
+
 = 通信受限场景下的混合并行通信掩盖策略
 
 == 研究背景与动机
@@ -175,39 +178,26 @@ POLAR-SGD 在每个 micro-batch 反向结束时累积梯度。当到达截断点
 2) *便于与 DP+PP 的控制流集成*：在 1F1B 调度下，micro-batch 的反向完成顺序明确，选择一个截断点能稳定地产生较长的可重叠窗口。
 
 #figure(
-  table(
-    columns: (100%,),
-    align: left,
-    stroke: none,
-    table.hline(),
-    table.header([*算法 1：POLAR-SGD 的前缀触发异步 All-Reduce（每迭代一次）*]),
-    table.hline(stroke: 0.5pt),
-    [
-      *全局状态：* 累积梯度 $g_a$；前缀快照 $g^(tau)$；通信句柄 $h_t$ \
-      *回调：* 在每个 micro-batch 反向结束时调用
-    ],
-    table.hline(stroke: 0.5pt),
-    [
-      #set par(leading: 0.65em)
-      #v(0.3em)
-      #h(-2em) *procedure* $"OnBackwardMicroBatch"(t, m, g_(r,t,m))$ \
-      *1:*  #h(1.5em) $g_a <- g_a + g_(r,t,m)$ #h(1em) ▷ PP 的梯度累积 \
-      *2:*  #h(1.5em) *if* $m = tau$ *then* \
-      *3:*  #h(3em) $g^(tau) <- g_a$ #h(1em) ▷ 记录前缀梯度快照 \
-      *4:*  #h(3em) $s_(r,t) <- "BuildSendBufferAtCutoff"(t, g^(tau))$ \
-      *5:*  #h(3em) $h_t <- "AsyncAllReduceMean"(s_(r,t))$ \
-      *6:*  #h(1.5em) *end if* \
-      *7:*  #h(1.5em) *if* $m = M$ *then* \
-      *8:*  #h(3em) *wait* $(h_t)$ #h(1em) ▷ 得到同步梯度 $g_"sync",t$ \
-      *9:*  #h(3em) $"OptimizerStep"(g_"sync",t)$ \
-      *10:* #h(3em) $"UpdateError"(t, g_a)$ #h(1em) ▷ 用完整累积梯度更新误差缓冲 \
-      *11:* #h(3em) $g_a <- 0$; $h_t <- "NULL"$ \
-      *12:* #h(1.5em) *end if*
-      #v(0.3em)
-    ],
-    table.hline(),
-  ),
-  caption: [前缀触发的异步梯度同步流程（整理自论文 Algorithm: communication）]
+  kind: "algorithm",
+  placement: top,
+
+  pseudocode-list(booktabs: true, numbered-title: [算法 1：POLAR-SGD 的前缀触发异步 All-Reduce（每迭代一次）], full: true)[
+    - *全局状态：* 累积梯度 $g_a$；前缀快照 $g^(tau)$；通信句柄 $h_t$
+    - *回调：* 在每个 micro-batch 反向结束时调用
+
+    + $g_a <- g_a + g_(r,t,m)$ #h(1em) ▷ PP 的梯度累积
+    + *if* $m = tau$ *then*
+      + $g^(tau) <- g_a$ #h(1em) ▷ 记录前缀梯度快照
+      + $s_(r,t) <- "BuildSendBufferAtCutoff"(t, g^(tau))$
+      + $h_t <- "AsyncAllReduceMean"(s_(r,t))$
+    + *end*
+    + *if* $m = M$ *then*
+      + *wait* $(h_t)$ #h(1em) ▷ 得到同步梯度 $g_"sync",t$
+      + $"OptimizerStep"(g_"sync",t)$
+      + $"UpdateError"(t, g_a)$ #h(1em) ▷ 用完整累积梯度更新误差缓冲
+      + $g_a <- 0$; $h_t <- "NULL"$
+    + *end*
+  ],
 ) <algo:polar-communication>
 
 === 截断点 $tau$ 的选择规则
@@ -259,32 +249,20 @@ $ g_"sync",t + bar e_(t+1) = bar g_t^(M) $
 该等式说明：同步更新方向与下一步的平均残差共同分解了“本步完整累积梯度”的信息；也就是说，后缀 micro-batch 的信息并未被忽略，只是被延迟到 residual 通道中体现。
 
 #figure(
-  table(
-    columns: (100%,),
-    align: left,
-    stroke: none,
-    table.hline(),
-    table.header([*算法 2：POLAR-SGD 的误差反馈（前缀缩放 + residual 更新）*]),
-    table.hline(stroke: 0.5pt),
-    [
-      *全局状态：* 误差缓冲 $e_(r,t)$；预测梯度 $g_"pred",(r,t)$；$tau$ 与 $M$
-    ],
-    table.hline(stroke: 0.5pt),
-    [
-      #set par(leading: 0.65em)
-      #v(0.3em)
-      #h(-2em) *procedure* $"BuildSendBufferAtCutoff"(t, g_(r,t)^(tau))$ \
-      *1:*  #h(1.5em) $s_(r,t) <- (M/tau) dot (g_(r,t)^(tau) + e_(r,t))$ \
-      *2:*  #h(1.5em) $g_"pred",(r,t) <- s_(r,t)$ \
-      *3:*  #h(1.5em) *return* $s_(r,t)$ \
-      #v(0.5em)
-      #h(-2em) *procedure* $"UpdateError"(t, g_(r,t)^(M))$ \
-      *4:*  #h(1.5em) $e_(r,t+1) <- g_(r,t)^(M) - g_"pred",(r,t)$
-      #v(0.3em)
-    ],
-    table.hline(),
-  ),
-  caption: [误差反馈机制（整理自论文 Algorithm: error feedback）]
+  kind: "algorithm",
+  placement: top,
+
+  pseudocode-list(booktabs: true, numbered-title: [算法 2：POLAR-SGD 的误差反馈（前缀缩放 + residual 更新）], full: true)[
+    - *全局状态：* 误差缓冲 $e_(r,t)$；预测梯度 $g_"pred",(r,t)$；$tau$ 与 $M$
+
+    + *procedure* $"BuildSendBufferAtCutoff"(t, g_(r,t)^(tau))$
+      + $s_(r,t) <- (M/tau) dot (g_(r,t)^(tau) + e_(r,t))$
+      + $g_"pred",(r,t) <- s_(r,t)$
+      + *return* $s_(r,t)$
+    + \
+    + *procedure* $"UpdateError"(t, g_(r,t)^(M))$
+      + $e_(r,t+1) <- g_(r,t)^(M) - g_"pred",(r,t)$
+  ],
 ) <algo:polar-error-feedback>
 
 == 工程实现与系统集成（扩写）
