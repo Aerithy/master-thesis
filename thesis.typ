@@ -2,9 +2,11 @@
 #import "template/src/abstract.typ": abstract, abstract-en
 
 #let abstract-zh-text = [
-  #show: abstract.with(keyword: ("分布式训练", "跨数据中心", "通信优化", "大语言模型"))
+  #show: abstract.with(keyword: ("分布式训练", "云边端协同", "跨域通信", "通信优化", "大语言模型"))
 
-  在大语言模型训练中，分布式训练技术已成为支撑大规模模型训练的核心技术基础，其依赖于高性能计算、高性能通信网络和高性能存储架构的协同支持。目前，单数据中心内的计算技术和高性能网络技术已趋于成熟，能够实现高效的计算执行和节点间通信。然而，随着训练数据规模的持续增长，海量数据的收集和清洗已超出单个数据中心的处理能力。在跨数据中心的分布式训练场景中，由于数据中心间缺乏高性能网络互联支撑，节点间的模型同步通信成为制约训练效率的关键瓶颈。
+  在大语言模型训练中，分布式训练技术已成为支撑大规模模型训练的核心基础。随着训练数据与算力资源从“单一数据中心”走向“云-边-端协同”的跨域形态——数据分布在云端数据湖、边缘微型数据中心与端侧设备，算力分散在中心云 GPU 集群、边缘 GPU/CPU 节点与部分端侧加速器——训练系统面临更强的异构性：域内链路（如同机 NVLink/PCIe、同域 RDMA）高带宽低时延，而跨域链路（边缘到云、边缘到边缘、端到边缘的蜂窝/宽带接入）往往带宽更低、RTT 更高且抖动更大。由此产生的梯度同步通信开销更容易进入迭代关键路径，成为制约云边端协同训练吞吐与时延的关键瓶颈。
+
+  针对上述挑战，本文以“跨域（Cloud–Edge–Device）分布式训练通信优化”为目标，从通信量、集合通信调度、计算-通信重叠三个层面开展系统性研究；其中跨数据中心训练可视为云-边/边-边跨域互联的一种典型强约束实例，可用于刻画云边端协同中的高 RTT 与低带宽特征。
 
   针对上述挑战，本文从三个层面对跨数据中心分布式训练通信进行系统性优化研究，主要工作内容和创新点如下：
 
@@ -16,9 +18,11 @@
 ]
 
 #let abstract-en-text = [
-  #show: abstract-en.with(keyword: ("Distributed Training", "Cross-Data Center", "Communication Optimization", "Large Language Models"))
+  #show: abstract-en.with(keyword: ("Distributed Training", "Cloud-Edge-Device Collaboration", "Cross-Domain Communication", "Communication Optimization", "Large Language Models"))
 
-  In large language model training, distributed training technology has become the fundamental infrastructure supporting large-scale model training, relying on the synergistic support of high-performance computing, high-performance communication networks, and high-performance storage architectures. Currently, computing technology and high-performance networking within a single data center have matured, enabling efficient computation execution and inter-node communication. However, with the continuous growth of training data scale, the collection and processing of massive datasets have exceeded the capacity of single data centers. In cross-data center distributed training scenarios, the lack of high-performance network interconnects between data centers makes inter-node model synchronization communication a critical bottleneck constraining training efficiency. To address these challenges, this thesis conducts systematic optimization research on cross-data center distributed training communication from three perspectives. The main contributions and innovations are as follows:
+  Distributed training has become the fundamental infrastructure for large language model training. As training data and compute resources evolve from a single data center to cloud-edge-device collaboration—where data resides across central clouds, edge micro-data centers, and end devices, and compute spans cloud GPU clusters and heterogeneous edge nodes—training systems face stronger cross-domain heterogeneity: intra-domain links (e.g., NVLink/PCIe, RDMA) are high-bandwidth and low-latency, while cross-domain links (edge-to-cloud, edge-to-edge, and device-to-edge access networks) are typically bandwidth-limited with higher RTT and larger jitter. As a result, gradient synchronization is more likely to fall onto the critical path and become a key bottleneck for end-to-end throughput and latency.
+
+  To address these challenges, this thesis targets communication optimization for cross-domain (Cloud–Edge–Device) distributed training. Cross-data-center training is treated as a representative, strongly-constrained instance of cloud-edge / edge-edge interconnects, capturing the key characteristics of low bandwidth and high RTT. We conduct systematic optimizations from three perspectives. The main contributions are:
 
   1. *Communication Volume Optimization*: We propose a 1-bit quantization-based distributed optimizer that reduces communication volume to 1/16 or 1/32 of the original size, and design a compatible 1-bit All-Reduce algorithm to efficiently support 1-bit quantized tensors.
 
@@ -28,7 +32,7 @@
 ]
 
 #show: thesis.with(
-  title: (zh: "面向云边端的跨域分布式训练通信优化研究", en: "Research on Communication Optimization for Distributed Training in Cross-Domain Multi-Data Center Scenarios"),
+  title: (zh: "面向云边端协同的跨域分布式训练通信优化研究", en: "Research on Communication Optimization for Distributed Training in Cross-Domain Multi-Data Center Scenarios"),
   author: (zh: "李云潼", en: "Yuntong Li"),
   teacher: (zh: "肖利民", en: "Limin Xiao"),
   teacher-degree: (zh: "教授", en: "Prof."),
@@ -48,9 +52,9 @@
   degree: (zh: "工学硕士", en: "Master of Engineering"),
   lib-number: "TP317",
   stu-id: "SY2306142",
-  abstract: abstract-en-text,
-  abstract-en: abstract-zh-text,
-  bibliography: bibliography.with("ref.bib"),
+  abstract: abstract-zh-text,
+  abstract-en: abstract-en-text,
+  bibliography: bibliography.with("supplementary/bib.bib"),
   achievement: [
     在国际会议上发表了多篇论文，
     参与了多个开源项目的开发，
@@ -67,124 +71,11 @@
   ],
 )
 
-= 绪论
-
-== 什么是 Typst？
-
-Typst 是一种现代的文档排版语言，旨在简化文档的编写和排版过程。它结合了编程的灵活性和传统排版的美观，使得用户可以轻松创建高质量的文档。
-
-== 为什么使用 Typst？
-
-使用 Typst 的原因包括：
-
-1、简洁的语法：Typst 的语法设计简洁明了，易于学习和使用。
-
-2、强大的功能：Typst 提供了丰富的功能，如数学公式支持、图形绘制、表格处理等，能够满足各种文档需求。
-
-3、可扩展性：Typst 支持自定义函数和模块，使得用户可以根据自己的需求扩展功能。
-
-#pagebreak()
-
-= 支持的文档元素
-
-== 图片引用
-
-如@fig:logo 所示，我们在文档中插入一个图片，并为其添加了一个标题。
-
-#figure(
-  image("logo.png", width: 30%),
-  caption: "这是一个北航的Logo",
-) <fig:logo>
-
-== 表格引用
-
-如@tab:three-line 所示，我们在文档中插入一个三线表格，并为其添加了一个标题。
-
-#figure(
-  table(
-    stroke: none,
-    columns: (1fr, 1fr, 1fr, 1fr),
-    align: center,
-    table.hline(),
-    table.header([*标题1*], [*标题2*], [*标题3*], [*标题4*]),
-    table.hline(stroke: 0.5pt),
-    [内容1], [内容1], [内容1], [内容1],
-    [内容2], [内容2], [内容2], [内容2],
-    [内容3], [内容3], [内容3], [内容3],
-    [内容4], [内容4], [内容4], [内容4],
-    table.hline(),
-  ),
-  caption: "这是一个三线表",
-) <tab:three-line>
-
-== 数学公式
-
-这是一个行内公式：$E = m c^2$
-
-这是一个行间公式（@mc2）：
-
-$ E = m c^2 $ <mc2>
-
-=== 更多数学公式示例
-
-*上下标和分数*：$x^2 + y^2 = z^2$，$x_i^2$，分数 $a/b$ 或 $frac(a, b)$
-
-*根号*：$sqrt(x)$，$sqrt(x^2 + y^2)$，$n$ 次根号 $root(n, x)$
-
-*求和与积分*：
-$ sum_(i=1)^n i = frac(n(n+1), 2) $ <sum-formula>
-
-$ integral_0^infinity e^(-x) dif x = 1 $ <integral-formula>
-
-*极限*：
-$ lim_(x -> infinity) (1 + 1/x)^x = e $ <limit-formula>
-
-*矩阵*：
-$ mat(
-  a, b;
-  c, d;
-) quad "或" quad mat(
-  a_(1,1), a_(1,2), dots.c, a_(1,n);
-  a_(2,1), a_(2,2), dots.c, a_(2,n);
-  dots.v, dots.v, dots.down, dots.v;
-  a_(m,1), a_(m,2), dots.c, a_(m,n);
-) $ <matrix-formula>
-
-*方程组*：
-$ cases(
-  x + y = 1,
-  x - y = 0
-) => cases(
-  x = 1/2,
-  y = 1/2
-) $ <equation-system>
-
-*向量与箭头*：$arrow(v)$，$hat(x)$，$tilde(x)$，$dot(x)$，$accent(x, dot.double)$，$arrow(A B)$
-
-*希腊字母*：$alpha, beta, gamma, delta, epsilon, zeta, eta, theta, iota, kappa, lambda, mu, nu, xi, pi, rho, sigma, tau, upsilon, phi, chi, psi, omega$
-
-大写：$Gamma, Delta, Theta, Lambda, Xi, Pi, Sigma, Upsilon, Phi, Psi, Omega$
-
-*常用符号*：$in, subset, supset, subset.eq, supset.eq, union, inter, emptyset, times, dot.c, div, plus.minus, equiv, approx, eq.not, lt.eq, gt.eq, infinity, partial, nabla, angle, perp, parallel$
-
-*逻辑符号*：$forall, exists, and, or, not, arrow.r.double, arrow.l.r.double$
-
-*多行公式（对齐）*：
-$ f(x) &= x^2 + 2x + 1 \
-      &= (x + 1)^2 \
-      &= x^2 + 2x + 1 $ <multiline-formula>
-
-== 文献引用
-
-让我们引用两个文献吧 @heDeepResidualLearning2016 @vaswaniAttentionAllYou2023！
-
-#pagebreak()
-
 // Chapter imports (split into per-chapter files)
 // Keep the front-matter and import chapters in order
 
-// #include "src/chapters/ch1-intro.typ"
-// #include "src/chapters/ch2-elements.typ"
+#include "src/chapters/ch1-intro.typ"
+#include "src/chapters/ch2-background.typ"
 #include "src/chapters/ch3-quantization.typ"
 #include "src/chapters/ch4-scheduling.typ"
 #include "src/chapters/ch5-overlap.typ"

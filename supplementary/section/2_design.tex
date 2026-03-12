@@ -1,0 +1,215 @@
+% \setlength{\baselineskip}{12pt plus 2pt minus 1pt}
+% \setstretch{1.1}
+% 设置图片搜索路径（假设图片放在 images 文件夹中）
+
+% 自定义图片标题格式
+% (ICML style already configures captions; avoid overriding it locally.)
+% \captionsetup[figure]{font=small, labelfont=bf}
+
+% \section{POLAR-SGD}
+% \section{\sysname Design}
+\label{sec:design}
+
+In this section, we present POLAR-SGD (Predictive Overlap in Local SGD with Adaptive Redundancy), a novel approach designed to address the communication bottleneck in DP+PP hybrid parallel training. The core principle is to transform blocking gradient synchronization into a pipelined communication process that overlaps with computation, while maintaining model convergence stability through a predictive error-correction mechanism. 
+
+\subsection{Notation}
+
+We first introduce the key notation used throughout this section.  Table~\ref{tab:notation} summarizes the symbols and variables employed in our algorithms.
+
+\begin{table}[ht]
+\centering
+\caption{Notation and terminology used in POLAR-SGD}
+\label{tab:notation}
+\begin{tabular}{ll}
+\hline
+\textbf{Symbol} & \textbf{Description} \\
+\hline
+$M$ & Number of micro-batches per mini-batch \\
+$m$ & Micro-batch index \\
+$i$ & Worker index within a DP group \\
+$g_{i,m}$ & Gradient of worker $i$ for micro-batch $m$ \\
+$g_a$ & Accumulated gradient \\
+$g_{pred}$ & Predicted gradient for All-Reduce \\
+$g_{sync}$ & Synchronized gradient from All-Reduce \\
+$e$ & Error buffer for gradient compensation \\
+$s$ & Send buffer for communication \\
+$h$ & Communication handle \\
+$w_m$ & Model weights at step $m$ \\
+$\eta$ & Learning rate \\
+$N$ & Number of workers \\
+$T$ & Global iterations \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.96\textwidth]{images/polar-pp-timeline.png}
+    \caption{
+        \textbf{Execution timeline comparison under DP+PP.} We illustrate one global iteration with $M{=}8$ micro-batches, DP size $=2$, and PP size $=4$. Each row labeled as \textit{Rank $x/x{+}4$} represents the same pipeline stage replicated across the two data-parallel ranks (e.g., Rank $0/4$ denotes stage 0 on the two DP replicas).
+        \textbf{Top: Baseline (PyTorch/Megatron).} Gradient synchronization is performed in a blocking manner near the end of the mini-batch, forming a long All-Reduce tail (purple) after most backward computations (white) have finished, which leaves accelerators under-utilized.
+        \textbf{Bottom: POLAR-SGD.} We launch non-blocking All-Reduce as soon as early micro-batch gradients (or partially accumulated gradients) are ready and offload collectives to a dedicated communication stream, thereby overlapping All-Reduce (purple) with subsequent backward computations (white) and shrinking the iteration tail.
+    }
+    \label{fig:overview}
+\end{figure*}
+
+\subsection{Overview of POLAR-SGD}
+
+Figure~\ref{fig:overview} compares the execution timelines of a standard DP+PP training loop and our POLAR-SGD design. The example uses $M{=}8$ micro-batches per mini-batch, DP size $=2$, and PP size $=4$ (i.e., 8 global ranks in total). In the figure, each row labeled as \textit{Rank $x/x{+}4$} aggregates the behavior of the same pipeline stage across the two data-parallel replicas; for instance, \textit{Rank $0/4$} corresponds to pipeline stage 0 on the two DP ranks.
+
+\textbf{Baseline DP+PP suffers from a synchronization tail.}
+As shown in Figure~\ref{fig:overview}(top), pipeline parallelism interleaves forward (red) and backward (white) computations across stages and micro-batches, but gradient synchronization in data parallelism is typically deferred until the end of the mini-batch after all $M$ micro-batches have completed backward. Consequently, a large blocking All-Reduce phase (purple) appears near the end of the iteration. During this tail, most compute work has already drained from the pipeline, yet training cannot proceed to the parameter update until All-Reduce completes, leading to significant accelerator idle time and reduced throughput.
+
+\textbf{POLAR-SGD eliminates the tail via pipelined communication with controlled asynchrony.}
+Figure~\ref{fig:overview}(bottom) illustrates our key idea: rather than treating the mini-batch as the smallest synchronization unit, we treat micro-batch backward computations as opportunities to initiate communication. Specifically, once gradients for an early micro-batch (or a partially accumulated gradient) become available, POLAR-SGD triggers a non-blocking All-Reduce and offloads it to a parallel communication stream. While the collective runs in the background, the main compute stream continues executing forward/backward for subsequent micro-batches, thereby overlapping All-Reduce (purple) with backward computation (white) and shrinking the iteration tail.
+
+This redesign introduces \emph{gradient staleness}: later micro-batches may be computed using model weights that have not yet incorporated globally synchronized gradients. To preserve convergence behavior, POLAR-SGD couples pipelined communication with a predictive error-correction mechanism that compensates for the discrepancy between the communicated (predicted) gradient and the full local gradient accumulated over all $M$ micro-batches. Together, these two components enable near-full communication--computation overlap without sacrificing convergence stability.
+
+\subsection{Pipelined Gradient Communication}
+
+In standard DP+PP, a mini-batch is divided into $M$ micro-batches. For worker $i$ in data-parallel group $k$, local gradients are accumulated as:
+\begin{equation}
+    G_i = \sum_{m=1}^{M} g_{i,m}
+\end{equation}
+where $g_{i,m}$ denotes the gradient computed from micro-batch $m$. After all gradients are computed, a blocking All-Reduce operation is performed.
+
+POLAR-SGD eliminates this bottleneck through the mechanism detailed in Algorithm~\ref{alg:communication}.  After computing gradient $g_{i,m}$ from the backward pass of micro-batch $m$, we immediately initiate a non-blocking All-Reduce operation.  The \texttt{Trigger} function determines when to launch communication based on the current micro-batch count, while the \texttt{GradientUpdateJudge} function decides when to perform parameter updates.  This allows the All-Reduce operation for one set of gradients to execute concurrently with computation for subsequent micro-batches.
+
+The accumulated gradient $g_a$ represents the sum of gradients from one or more micro-batches, depending on the gradient accumulation strategy. When \texttt{Trigger} returns true, $g_a$ is sent for All-Reduce via communication handle $h$. Subsequently, when \texttt{GradientUpdateJudge} determines an update is needed, the algorithm waits for the asynchronous communication to complete, applies the optimizer step using the globally synchronized gradient, and resets $g_a$ to zero. 
+
+Specifically, \textt{Trigger} returns true when $m$ reaches a pre-defined threshold $i$, and \texttt{GradientUpdateJudge} returns true when $m = M$.
+
+
+\begin{algorithm}[tb]
+  \caption{Pipelined Gradient Communication in DP+PP Training}
+  \label{alg:communication}
+  \begin{algorithmic}
+    \STATE {\bfseries Global variables:} accumulated gradient $g_a$, communication handle $h$
+    \STATE {\bfseries Procedure:} \textsc{OnBackwardMicroBatch}$(m)$
+    \STATE $should\_comm \leftarrow \textsc{Trigger}(m)$
+    \IF{$should\_comm$}
+      \STATE $h \leftarrow \textsc{AsyncAllReduce}(g_a)$
+    \ENDIF
+    \STATE $should\_update \leftarrow \textsc{GradientUpdateJudge}(m)$
+    \IF{$should\_update$}
+      \IF{$h \neq \textsc{NULL}$}
+        \STATE \textbf{wait}($h$); $h \leftarrow \textsc{NULL}$
+      \ENDIF
+      \STATE \textsc{OptimizerStep}()
+      \STATE $g_a \leftarrow 0$
+    \ELSE
+      \STATE continue gradient accumulation
+    \ENDIF
+  \end{algorithmic}
+\end{algorithm}
+
+
+\subsection{Predictive Error Correction}
+
+While the pipelined communication described above successfully decouples All-Reduce from computation, it introduces a synchronization challenge: utilizing gradients from only the first $i$ micro-batches effectively excludes the remaining $(M-i)$ micro-batches from the current global step. To address this and ensure consistent convergence, POLAR-SGD employs a predictive error-correction mechanism, formalized in Algorithm~\ref{alg:error_feedback}, which operates as follows:
+
+\begin{enumerate}
+    \item \textbf{Gradient Scaling and Communication:} 
+    To maintain consistency in gradient norms despite partial accumulation, we scale the accumulated gradient $g_a$ by a factor of $\frac{M}{i}$. This scaling ensures that the transmitted gradient $s$ approximates the magnitude of a full-batch gradient (where all $M$ micro-batches contribute). We add the error buffer $e$ from the previous step to compensation for historical deviations:
+    \begin{equation}
+        s = \frac{M}{i} \cdot (g_a + e_{t})
+    \end{equation}
+    The scaled gradient $s$ is then transmitted via a non-blocking All-Reduce operation and recorded as the predicted gradient $g_{pred} = s$.
+    
+    \item \textbf{Receiving Synchronized Gradient:} 
+    Upon completion of the All-Reduce, we receive the globally synchronized gradient $g_{sync}$. Since all workers apply the same scaling strategy, $g_{sync}$ represents an unbiased estimate of the global gradient, scaled to match the expected full-batch norm.
+    
+    \item \textbf{Error Computation and Feedback:} 
+    To ensure full data utilization, we capture the gradient information not sent in the current step. We compute the residual between the local accumulated gradient (which eventually includes all $M$ micro-batches) and the predicted gradient sent earlier:
+    \begin{equation}
+        e_{t+1} = g_a - g_{pred}
+    \end{equation}
+    This error term $e$ effectively carries forward the gradients of the unsent $(M-i)$ micro-batches (plus any prediction error) to the next training step, guaranteeing that no gradient information is discarded.
+    
+    \item \textbf{Parameter Update:} 
+    Finally, the optimizer applies the synchronized gradient $g_{sync}$ to update model parameters:
+    \begin{equation}
+        w_{t+1} = w_t - \eta \cdot g_{sync}
+    \end{equation}
+    Through this cycle, the cumulative error converges to zero over time, maintaining convergence behavior consistent with synchronous SGD.
+\end{enumerate}
+
+\begin{algorithm}[tb]
+  \caption{Error Feedback Mechanism with Gradient Scaling}
+  \label{alg:error_feedback}
+  \begin{algorithmic}
+    \STATE {\bfseries Global variables:} error buffer $e$, predicted gradient $g_{pred}$, synchronized gradient $g_{sync}$, $M$ (micro-batches)
+    \STATE Initialize: $e \leftarrow 0$, $g_{pred} \leftarrow 0$
+    \STATE {\bfseries Procedure:} \textsc{OnBackwardMicroBatchWithScaling}$(m)$
+    \STATE $should\_comm \leftarrow \textsc{Trigger}(m)$
+    \IF{$should\_comm$}
+      \STATE $i \leftarrow m$
+      \STATE $s \leftarrow \frac{M}{i} \cdot (g_a + e)$
+      \STATE $g_{pred} \leftarrow s$
+      \STATE (pass $s$ to \textsc{AsyncAllReduce} in Algorithm~\ref{alg:communication})
+    \ENDIF
+    \STATE $should\_update \leftarrow \textsc{GradientUpdateJudge}(m)$
+    \IF{$should\_update$}
+      \STATE (wait and retrieve $g_{sync}$ via Algorithm~\ref{alg:communication})
+      \STATE $e \leftarrow g_a - g_{pred}$
+    \ENDIF
+  \end{algorithmic}
+\end{algorithm}
+
+\subsection{Convergence Analysis}
+
+% We now provide a theoretical analysis demonstrating that POLAR-SGD maintains the same convergence guarantees as standard synchronous SGD. 
+
+% \subsubsection{Assumptions}
+
+% We make the following standard assumptions in stochastic optimization: 
+
+% \begin{assumption}[L-Smoothness]
+% \label{assump:smooth}
+% The loss function $f(w)$ is $L$-smooth, i. e., for all $w, w'$: 
+% \begin{equation}
+%     \|\nabla f(w) - \nabla f(w')\| \leq L \|w - w'\|
+% \end{equation}
+% \end{assumption}
+
+% \begin{assumption}[Unbiased Gradient]
+% \label{assump:unbiased}
+% The stochastic gradient is unbiased: $\mathbb{E}[g_{i,m}] = \nabla f(w_i^{(m)})$.
+% \end{assumption}
+
+% \begin{assumption}[Bounded Variance]
+% \label{assump:variance}
+% The variance of stochastic gradients is bounded:  $\mathbb{E}[\|g_{i,m} - \nabla f(w_i^{(m)})\|^2] \leq \sigma^2$.
+% \end{assumption}
+
+% \subsubsection{Main Convergence Theorem}
+
+% \begin{theorem}[Convergence of POLAR-SGD]
+% \label{thm:convergence}
+% Under Assumptions~\ref{assump:smooth},~\ref{assump:unbiased}, and~\ref{assump:variance}, with learning rate $\eta \leq \frac{1}{2L}$, after $T$ global iterations (each with $M$ micro-batches), POLAR-SGD satisfies: 
+% \begin{equation}
+%     \frac{1}{TM}\sum_{t=0}^{T-1}\sum_{m=0}^{M-1} \mathbb{E}[\|\nabla f(w_t^{(m)})\|^2] \leq \frac{2(f(w_0) - f^*)}{\eta T M} + \frac{L\eta\sigma^2}{N}
+% \end{equation}
+% where $f^* = \inf_w f(w)$ is the optimal value and $N$ is the number of workers.
+% \end{theorem}
+
+% The complete proof is provided in Appendix~\ref{app:proof}.
+
+% \subsubsection{Key Insights}
+
+% Theorem~\ref{thm:convergence} establishes several important properties of POLAR-SGD:
+
+% \begin{enumerate}
+%     \item \textbf{Asymptotic convergence rate:} POLAR-SGD converges at rate $O(1/\sqrt{TM})$, matching standard synchronous SGD. 
+    
+%     \item \textbf{Error cancellation:} The error-feedback mechanism ensures $\sum_{i=1}^{N} e_i^{(m)} = 0$ at every step, meaning errors cancel out across workers and do not accumulate.
+    
+%     \item \textbf{Unbiased effective gradient: } Despite asynchronous computation, the effective gradient $g_{sync}^{(m)}$ remains an unbiased estimator of the true gradient.
+    
+%     \item \textbf{Variance reduction:} With $N$ workers, the gradient variance scales as $\sigma^2/N$, providing variance reduction benefits similar to standard data parallelism.
+% \end{enumerate}
+
+% This theoretical analysis confirms that POLAR-SGD achieves communication-computation overlap without sacrificing convergence guarantees.
+
+
+Under standard assumptions (L-smoothness, unbiased gradient, bounded variance), we prove POLAR-SGD achieves the same asymptotic convergence rate as synchronous SGD (see Appendix A4 for full proof). The key theorem shows the average gradient norm bound only includes an additional constant term controlled by the error buffer, confirming stable optimization behavior.

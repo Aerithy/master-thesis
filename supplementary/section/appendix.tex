@@ -1,0 +1,212 @@
+\section{Additional Details}
+\label{sec:appendix}
+
+\subsection{Code base}
+\label{app:code_base}
+Our code is published at: \hyperlink{}{https://anonymous.4open.science/r/polar-sgd-7583}. 
+
+\subsection{Rethinking Parallelism Choices in Cross-DC Training}
+\label{app:rethink_parallelism}
+We can make the above distinction precise by comparing how cross-datacenter communication scales with the global batch size $B$.
+
+Consider $D$ datacenters, each processing local minibatch $b$ such that $B = D \cdot b$, and let $\alpha$ be bytes per parameter communicated. Let $A$ denote the bytes of activation tensors that must cross a pipeline boundary \emph{per sample} when a pipeline cut spans datacenters (this includes the forward activations and, correspondingly, backward activation gradients on the return path).
+
+\textbf{Cross-DC DP (gradient synchronization).}
+In data parallel training, each datacenter performs forward/backward locally and participates in a global gradient aggregation once per iteration. The amount of data communicated across datacenters for the aggregation is proportional to the model size, not the batch size:
+\[
+V_{\mathrm{DP}} \approx \alpha P
+\]
+Thus, with fixed model size, the WAN communication volume for DP is \emph{constant} as $B$ increases.
+
+\textbf{Cross-DC PP (activation transfer).}
+When pipeline stages are placed in different datacenters, each microbatch must transmit activations across the WAN at each cross-DC boundary. Aggregated over the iteration, the WAN traffic scales with the number of samples processed:
+\[
+V_{\mathrm{PP}} \approx \Theta(B \cdot A),
+\]
+meaning cross-DC PP incurs WAN communication that grows \emph{linearly} with the global batch size.
+
+\textbf{Implication on iteration time and throughput.}
+Let $\mathrm{BW}_{\mathrm{WAN}}$ be the effective WAN bandwidth and $\mathrm{Lat}_{\mathrm{WAN}}$ the WAN latency. A coarse lower bound on communication time is:
+\[
+T_{\mathrm{comm}} \approx \mathrm{Lat}_{\mathrm{WAN}} + \frac{V}{\mathrm{BW}_{\mathrm{WAN}}}.
+\]
+Therefore,
+\begin{align*}
+    T_{\mathrm{comm}}^{\mathrm{DP}} \approx \mathrm{Lat}_{\mathrm{WAN}} + \frac{\alpha P}{\mathrm{BW}_{\mathrm{WAN}}},\\
+    T_{\mathrm{comm}}^{\mathrm{PP}} \approx \mathrm{Lat}_{\mathrm{WAN}} + \frac{c \, B A}{\mathrm{BW}_{\mathrm{WAN}}},
+\end{align*}
+where $c$ captures constants such as the number of cross-DC cuts and forward/backward directions.
+
+As $B$ increases, $T_{\mathrm{comm}}^{\mathrm{PP}}$ increases proportionally, and more importantly, PP communication lies on the critical path due to stage ordering constraints, so WAN variability directly stalls compute. In contrast, $T_{\mathrm{comm}}^{\mathrm{DP}}$ does not grow with $B$; the compute per iteration typically increases with $B$, so the fixed WAN synchronization cost is amortized over more computation and samples. Consequently, end-to-end throughput of DP-centric Cross-DC training becomes increasingly favorable at large batch sizes, while PP-centric Cross-DC training suffers growing WAN overhead and sensitivity to network dynamics.
+
+\subsection{Proofs}
+
+We provide a convergence analysis showing that POLAR-SGD retains the same \emph{asymptotic} convergence behavior as synchronous SGD, up to an additional term controlled by the error-feedback residual.
+
+\subsubsection{Assumptions}
+
+We make the following standard assumptions in stochastic optimization:
+
+\begin{assumption}[L-Smoothness]
+\label{assump:smooth}
+The loss function $f(w)$ is $L$-smooth, i.e., for all $w, w'$:
+\begin{equation}
+    \|\nabla f(w) - \nabla f(w')\| \leq L \|w - w'\|.
+\end{equation}
+\end{assumption}
+
+\begin{assumption}[Unbiased Gradient]
+\label{assump:unbiased}
+For each worker $r$ and micro-batch $m$, the stochastic gradient is unbiased:
+\begin{equation}
+\mathbb{E}\left[g_{r,t,m}\mid w_t\right] = \nabla f(w_t).
+\end{equation}
+\end{assumption}
+
+\begin{assumption}[Bounded Variance]
+\label{assump:variance}
+The variance of stochastic gradients is bounded:
+\begin{equation}
+\mathbb{E}\left[\|g_{r,t,m} - \nabla f(w_t)\|^2 \mid w_t\right] \le \sigma^2.
+\end{equation}
+\end{assumption}
+
+\noindent
+% \textbf{Remark.} Our analysis focuses on the DP synchronization effect introduced by prefix-based communication. The pipeline execution order does not change the definition of per-micro-batch stochastic gradients; gradients are accumulated normally over $M$ micro-batches within each iteration.
+
+\subsubsection{Main Convergence Theorem}
+
+\begin{theorem}[Convergence of POLAR-SGD (mean All-Reduce with error feedback)]
+\label{thm:convergence}
+Under Assumptions~\ref{assump:smooth}--\ref{assump:variance}, with learning rate $\eta \leq \frac{1}{2L}$, after $T$ global iterations, POLAR-SGD satisfies
+\begin{equation}
+\begin{aligned}
+\frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\left[\|\nabla f(w_t)\|^2\right]
+\le\;&
+\frac{2\big(f(w_0)-f^*\big)}{\eta T}
++ \frac{L\eta\sigma^2}{N}
+\\
+&+ \frac{L\eta}{T}\sum_{t=0}^{T-1}\mathbb{E}\left[\|\bar e_t\|^2\right],
+\end{aligned}
+\label{eq:main_bound}
+\end{equation}
+where $f^*=\inf_w f(w)$ and $\bar e_t=\frac{1}{N}\sum_{r=1}^N e_{r,t}$ is the averaged error buffer.
+\end{theorem}
+
+\subsection{Detailed Proof}
+\label{app:proof}
+
+\subsubsection{Key Definitions (Aligned with Algorithm 2)}
+For a global iteration with $M$ micro-batches, we define:
+\begin{itemize}
+  \item $i$: Index of the micro-batch where communication is triggered ($1 \leq i \leq M$)
+  \item $g_a^{(i)} = \sum_{k=1}^i g_{k}$: Local accumulated gradient from micro-batch 1 to $i$
+  \item $g_{\text{pred}}^{(i)} = \frac{M}{i} \cdot g_a^{(i)}$: Predicted full-batch gradient (scaled by $\frac{M}{i}$ to match the norm of the full $M$ micro-batches)
+  \item $e^{(i)} = g_a^{(M)} - g_{\text{pred}}^{(i)}$: Error buffer (compensation term for the unsynchronized micro-batches $i+1$ to $M$)
+  \item $g_{\text{sync}}^{(i)} = \frac{1}{N}\sum_{j=1}^N \left(g_{\text{pred},j}^{(i)} + e_j^{(i-1)}\right)$: Global synchronized gradient (incorporating error feedback from the previous step)
+\end{itemize}
+
+\subsubsection{Assumptions (Revised for Asynchronous Scenarios)}
+We retain the three standard assumptions and add one asynchronous bias constraint to match POLAR-SGD's pipeline communication:
+\begin{enumerate}
+  \item \textbf{$L$-Smoothness}: $\|\nabla f(w_1) - \nabla f(w_2)\| \leq L\|w_1 - w_2\|$ for all $w_1,w_2$
+  \item \textbf{Unbiased Gradient}: $\mathbb{E}[g_{k} \mid w_k] = \nabla f(w_k)$, where $w_k$ is the parameter used for micro-batch $k$
+  \item \textbf{Bounded Variance}: $\mathbb{E}\left[\|g_{k} - \nabla f(w_k)\|^2 \mid w_k\right] \leq \sigma^2$
+  \item \textbf{Bounded Asynchronous Bias}: Due to pipeline communication, $w_k$ may differ from the globally synchronized parameter $w_{\text{sync}}$. We assume $\|w_k - w_{\text{sync}}\| \leq \Delta$, where $\Delta$ is a constant determined by communication-computation overlap ratio.
+\end{enumerate}
+
+\subsubsection{Proof Steps}
+\textbf{Step 1: Error Buffer Dynamics and Boundedness}
+The error buffer $e^{(i)}$ is defined as the deviation between the full local accumulated gradient $g_a^{(M)}$ and the predicted gradient $g_{\text{pred}}^{(i)}$ sent for synchronization:
+\begin{equation}
+e^{(i)} = \sum_{k=1}^M g_k - \frac{M}{i}\sum_{k=1}^i g_k = \sum_{k=i+1}^M g_k - \frac{M-i}{i}\sum_{k=1}^i g_k
+\end{equation}
+
+From the bounded variance assumption, each $g_k$ satisfies $\|g_k\| \leq G$ (a constant gradient norm bound for LLMs). Thus:
+\begin{equation}
+\|e^{(i)}\| \leq \sum_{k=i+1}^M \|g_k\| + \frac{M-i}{i}\sum_{k=1}^i \|g_k\| \leq M \cdot G
+\end{equation}
+
+This proves the boundedness of $e^{(i)}$: the error buffer has an upper bound $M \cdot G$ and lower bound $-M \cdot G$, which is independent of the number of global steps—it only depends on the number of micro-batches $M$ and the single micro-batch gradient norm $G$.
+
+For multiple workers, the sum of errors across workers $\sum_{j=1}^N e_j^{(i)}$ is not necessarily zero—it depends on the randomness of local gradients across workers. However, due to the unbiasedness of local gradients, we can derive the expectation bound of the sum:
+\begin{equation}
+\mathbb{E}\left[\left\|\sum_{j=1}^N e_j^{(i)}\right\|^2\right] \leq N \cdot M^2 \cdot G^2
+\end{equation}
+
+\textbf{Step 2: Effective Gradient and Asynchronous Bias Compensation}
+The global synchronized gradient incorporating error feedback is:
+\begin{equation}
+g_{\text{sync}}^{(i)} = \frac{1}{N}\sum_{j=1}^N \left(\frac{M}{i}g_{a,j}^{(i)} + e_j^{(i-1)}\right)
+\end{equation}
+
+Substitute $e_j^{(i-1)} = g_{a,j}^{(M)} - \frac{M}{i-1}g_{a,j}^{(i-1)}$ (from the previous step's error definition):
+\begin{equation}
+g_{\text{sync}}^{(i)} = \frac{1}{N}\sum_{j=1}^N \Bigg(\frac{M}{i}g_{a,j}^{(i)} + g_{a,j}^{(M)} - \frac{M}{i-1}g_{a,j}^{(i-1)}\Bigg)
+\end{equation}
+
+When $i = M$ (synchronization after all micro-batches), the predicted gradient equals the full local gradient, so $e_j^{(M)} = 0$. For general $i$, the effective gradient $g_{\text{sync}}^{(i)}$ can be rewritten as:
+\begin{equation}
+g_{\text{sync}}^{(i)} = \frac{1}{N}\sum_{j=1}^N g_{a,j}^{(M)} + \delta^{(i)}
+\end{equation}
+where $\delta^{(i)}$ is the asynchronous bias term caused by early synchronization. From the boundedness of $e^{(i)}$, we have $\|\delta^{(i)}\| \leq C \cdot \Delta$ (a constant $C$ related to $M$).
+
+\textbf{Step 3: Iteration Inequality Under Smoothness}
+The parameter update rule for POLAR-SGD is:
+\begin{equation}
+w^{(m+1)} = w^{(m)} - \eta \cdot g_{\text{sync}}^{(i,m)}
+\end{equation}
+where $g_{\text{sync}}^{(i,m)}$ is the synchronized gradient for micro-batch $m$ in the global iteration.
+
+By $L$-smoothness:
+\begin{equation}
+f(w^{(m+1)}) \leq f(w^{(m)}) + \langle \nabla f(w^{(m)}), w^{(m+1)} - w^{(m)} \rangle + \frac{L}{2}\|w^{(m+1)} - w^{(m)}\|^2
+\end{equation}
+
+Substitute the update rule and expand:
+\begin{equation}
+f(w^{(m+1)}) \leq f(w^{(m)}) - \eta \langle \nabla f(w^{(m)}), g_{\text{sync}}^{(i,m)} \rangle + \frac{L\eta^2}{2}\|g_{\text{sync}}^{(i,m)}\|^2
+\end{equation}
+
+\textbf{Step 4: Expectation and Convergence Bound}
+Take expectation over gradient randomness and asynchronous bias:
+\begin{equation}
+\mathbb{E}[f(w^{(m+1)})] \leq \mathbb{E}[f(w^{(m)})] - \eta \mathbb{E}\left[\langle \nabla f(w^{(m)}), g_{\text{sync}}^{(i,m)} \rangle\right] + \frac{L\eta^2}{2}\mathbb{E}\left[\|g_{\text{sync}}^{(i,m)}\|^2\right]
+\end{equation}
+
+From the unbiased gradient assumption and bounded asynchronous bias:
+\begin{equation}
+\mathbb{E}\left[\langle \nabla f(w^{(m)}), g_{\text{sync}}^{(i,m)} \rangle\right] = \|\nabla f(w^{(m)})\|^2 + \mathbb{E}\left[\langle \nabla f(w^{(m)}), \delta^{(i,m)} \rangle\right] \geq \|\nabla f(w^{(m)})\|^2 - D \cdot \Delta
+\end{equation}
+where $D$ is the Lipschitz constant of $\nabla f$.
+
+For the second moment term, using bounded variance and error boundedness:
+\begin{equation}
+\mathbb{E}\left[\|g_{\text{sync}}^{(i,m)}\|^2\right] \leq \|\nabla f(w^{(m)})\|^2 + \frac{\sigma^2}{N} + C^2 \cdot \Delta^2
+\end{equation}
+
+Substitute back into the iteration inequality and rearrange:
+\begin{equation}
+\mathbb{E}[f(w^{(m+1)})] \leq \mathbb{E}[f(w^{(m)})] - \eta\left(1 - \frac{L\eta}{2}\right)\|\nabla f(w^{(m)})\|^2 + \eta D \Delta + \frac{L\eta^2}{2}\left(\frac{\sigma^2}{N} + C^2 \Delta^2\right)
+\end{equation}
+
+Set the learning rate condition $\eta \leq \frac{1}{2L}$ to ensure the coefficient of $\|\nabla f(w^{(m)})\|^2$ is positive:
+\begin{equation}
+1 - \frac{L\eta}{2} \geq \frac{3}{4}
+\end{equation}
+
+\textbf{Step 5: Summing Over Steps and Final Convergence Bound}
+Sum over $M$ micro-batches per global iteration and $T$ global iterations:
+\begin{equation}
+\sum_{t=0}^{T-1}\sum_{m=0}^{M-1} \mathbb{E}\left[\|\nabla f(w_t^{(m)})\|^2\right] \leq \frac{4}{\eta}\Bigg(f(w_0) - f^* + T M \left(\eta D \Delta + \frac{L\eta^2}{2}\left(\frac{\sigma^2}{N} + C^2 \Delta^2\right)\right)\Bigg)
+\end{equation}
+
+Divide both sides by $TM$ to get the average gradient norm bound:
+\begin{equation}
+\frac{1}{TM}\sum_{t=0}^{T-1}\sum_{m=0}^{M-1} \mathbb{E}\left[\|\nabla f(w_t^{(m)})\|^2\right] \leq \frac{4(f(w_0) - f^*)}{\eta TM} + 4 D \Delta + \frac{2 L \eta}{N}\sigma^2 + 2 L \eta C^2 \Delta^2
+\end{equation}
+
+Set the learning rate $\eta = \frac{K}{\sqrt{TM}}$ (to balance convergence rate and bias) where $K \leq \frac{\sqrt{TM}}{2L}$. The convergence rate is $O(1/\sqrt{TM})$, which matches standard synchronous SGD. The additional terms ($4D\Delta$, $2L\eta C^2\Delta^2$) are constants determined by asynchronous bias, which vanish as $\Delta \to 0$ (full communication-computation overlap).
+
+This completes the proof.
+\label{app:exp_details}

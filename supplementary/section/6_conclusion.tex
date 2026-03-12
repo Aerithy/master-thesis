@@ -1,0 +1,9 @@
+\label{conclusion}
+
+We presented POLAR-SGD, which pipelines gradient communication across micro-batches to overlap synchronization with computation, and stabilizes the resulting asynchrony via a lightweight predictive (error-feedback) correction mechanism.
+
+In a realistic Cross-DC emulation (30~Gb/s bandwidth, 50~ms RTT) on LLaMA-2 7B with 32 A100 GPUs, POLAR-SGD improves training throughput by \textbf{1.87$\times$}, while model quality is successfully maintained comparable to the synchronous baseline.
+
+% \paragraph{Limitations and future work.}
+% Our experiments focus on a specific WAN regime and a DP-centric Cross-DC organization; extending POLAR-SGD to more heterogeneous multi-site deployments and to stronger network variability is an important next step.
+% It is also promising to study how the approach interacts with other parallelism strategies and collectives (e.g., tensor/expert parallelism and their synchronization patterns), and to validate robustness at larger model and cluster scales.

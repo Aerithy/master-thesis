@@ -1,0 +1,39 @@
+\label{sec:implementation}
+
+We implement POLAR-SGD as a lightweight extension to PyTorch's \texttt{DistributedDataParallel} (DDP) module.  Our implementation is fully compatible with existing DP+PP training pipelines and requires minimal code changes to deploy.
+
+\subsection{Architecture Overview}
+
+Figure~\ref{fig:implementation_arch} illustrates the system architecture.  POLAR-SGD intercepts PyTorch's gradient computation events through backward hooks, manages asynchronous All-Reduce operations via a communication handle queue, and maintains per-parameter error buffers for gradient correction.  The core logic is encapsulated in a custom DDP wrapper that transparently implements Algorithms~\ref{alg:communication} and~\ref{alg:error_feedback}.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{example-image-duck}
+    \caption{POLAR-SGD system architecture. The implementation intercepts gradient hooks, manages asynchronous communication, and maintains error buffers without requiring changes to the training loop.}
+    \label{fig:implementation_arch}
+\end{figure}
+
+\textbf{Key implementation choices. } We leverage three PyTorch primitives:  (1) \texttt{register\_comm\_hook} to intercept gradient readiness, (2) \texttt{torch.distributed.iallreduce} for non-blocking communication, and (3) gradient buffers for error accumulation. The backward hook is triggered automatically after each micro-batch's gradient computation, initiating the compensated All-Reduce ($s = g_a + e$) and storing the communication handle for later synchronization.  When a parameter update is triggered, we wait for the pending All-Reduce, compute the new error ($e = g_{sync} - g_{pred}$), and proceed with the optimizer step.
+
+\subsection{Integration and Compatibility}
+
+\textbf{Drop-in replacement for DDP.} Migrating from standard PyTorch DDP to POLAR-SGD requires only replacing the model wrapper. No other changes to the training script, optimizer, or data loader are needed. The training loop remains identical to standard DDP training.
+
+\textbf{Pipeline parallelism integration.} POLAR-SGD operates at the data-parallel dimension and is orthogonal to pipeline parallelism. It integrates with existing pipeline-parallel training frameworks without modifying PP schedules (1F1B, interleaved 1F1B, etc.). We validated compatibility across multiple PP implementations.
+
+\textbf{Mixed precision and gradient accumulation.} Our implementation supports FP16/BF16 mixed precision training via PyTorch's \texttt{autocast}, maintaining error buffers in the same precision as gradients.  Gradient accumulation is naturally supported—errors accumulate across micro-batches and are corrected at mini-batch boundaries. 
+
+\subsection{Overhead and Tuning}
+
+\textbf{Memory and computation costs.} POLAR-SGD introduces minimal overhead:  one gradient-sized error buffer per parameter (e.g., 14 GB for a 7B model in FP16) and two element-wise additions per micro-batch ($<0.1\%$ computational overhead). Communication volume is identical to standard DDP. 
+
+\textbf{Configuration parameters.} Two parameters control the trade-off between overlap and staleness: 
+\begin{itemize}
+    \item \texttt{comm\_freq}: How often to trigger All-Reduce (every $K$ micro-batches). Higher values reduce communication frequency but may limit overlap.
+    \item \texttt{accum\_steps}: When to perform parameter updates (mini-batch size in micro-batches). Identical to standard gradient accumulation.
+\end{itemize}
+In our experiments (Section~\ref{sec:setup}), we find that \texttt{comm\_freq=2--4} provides optimal performance for Cross-DC scenarios with 20 Gb/s bandwidth and 50 ms latency.
+
+\textbf{System requirements.} POLAR-SGD requires PyTorch 1.13+ and a communication backend supporting non-blocking operations (NCCL for GPUs, Gloo for CPUs). All workers in a DP group must use identical \texttt{comm\_freq} and \texttt{accum\_steps}.
+
+Our implementation is available as an open-source package at \url{https://github.com/anonymous/polar-sgd}, including integration examples and documentation.

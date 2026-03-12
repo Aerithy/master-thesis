@@ -1,0 +1,60 @@
+Large language models (LLMs) have become foundational to a wide range of artificial intelligence applications~\cite{bommasani2021foundation, brown2020gpt3, touvron2023llama}. To achieve superior performance, practitioners are training increasingly larger models on ever-expanding datasets, driving an urgent need for scalable and efficient distributed training paradigms~\cite{narayanan2021efficient}.
+
+This scaling trend is dramatic: as shown in Table~\ref{tab:llm-comparison}, model parameters have grown from 0.34B (BERT-large, 2018) to 671B (DeepSeek-R1, 2024), while training datasets have expanded from 3.3B to 2 trillion tokens~\cite{devlin2019bert, brown2020gpt3, chowdhery2022palm, touvron2023llama, deepseekai2025deepseekr1}. Training such models requires thousands of accelerators (GPUs/TPUs) operating continuously for weeks or months~\cite{shoeybi2019megatron, narayanan2021efficient}. However, physical constraints within a single data center—including power density, cooling capacity, and physical space—make \textbf{cross-datacenter (Cross-DC) training} across geographically distributed facilities an emerging imperative~\cite{yu2023cross}. 
+
+\begin{table}[ht]
+    \caption{Evolution of language model scale (parameters and training data).}
+    \label{tab:llm-comparison}
+    \centering
+    \begin{tabular}{@{}lccc@{}}
+        \toprule
+        \textbf{Model} & \textbf{Release} & \textbf{Parameters} & \textbf{Dataset} \\
+        \midrule
+        BERT-large & 2018 & 0.34B & 3.3B tokens \\
+        GPT-2 & 2019 & 1.5B & 10B tokens \\
+        GPT-3 & 2020 & 175B & 300B tokens \\
+        PaLM & 2022 & 540B & 780B tokens \\
+        LLaMA & 2023 & 65B & 1.4T tokens \\
+        DeepSeek-R1 & 2024 & 671B & 2T tokens \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+% To address this computational demand, the de facto standard for training large models employs a hybrid of Data Parallelism (DP) and Pipeline Parallelism (PP)~\cite{narayanan2021efficient, shoeybi2019megatron}, often augmented with intra-stage techniques such as Tensor Parallelism (TP), Sequence/Context Parallelism (SP/CP)~\cite{narayanan2021efficient}, and Expert Parallelism (EP)~\cite{lepikhin2020gshard}. In this approach, a large global batch is divided into multiple micro-batches that are fed sequentially through pipeline stages to maximize hardware utilization~\cite{narayanan2021efficient, shoeybi2019megatron}.
+
+To address this computational demand, the de facto standard for training large models employs a hybrid of Data Parallelism (DP) and Pipeline Parallelism (PP)~\cite{narayanan2021efficient, shoeybi2019megatron}, often augmented with intra-stage strategies such as Tensor Parallelism (TP), Sequence/Context Parallelism (SP/CP)~\cite{narayanan2021efficient}, and Expert Parallelism (EP)~\cite{lepikhin2020gshard}. In this approach, a large global batch is divided into multiple micro-batches that are fed sequentially through pipeline stages to maximize hardware utilization~\cite{narayanan2021efficient, shoeybi2019megatron}. 
+In cross-DC scenarios, this paradigm can be further extended: employing data parallelism across different domains and pipeline parallelism within each domain, coupled with additional intra-stage parallel strategies, can theoretically achieve even better throughput (see \ref{ssb:rethink_parallelism} and \ref{app:rethink_parallelism} for details).
+
+However, in the Cross-DC setting, this widely adopted strategy encounters a critical challenge: the network characteristics of Wide Area Networks (WAN) differ drastically from intra-datacenter . Within a data center, high-speed interconnects such as InfiniBand or RDMA-capable Ethernet provide 200-800 Gb/s bandwidth with sub-millisecond latency. In contrast, cross-datacenter links rely on WAN infrastructure, typically offering only 10-30 Gb/s bandwidth with 30-100 ms latency, a $10-40\times$ bandwidth reduction and $30-100\times$ latency increase~\cite{yu2023cross}. This network disparity renders the blocking All-Reduce synchronization in standard DP+PP a severe bottleneck.
+
+In standard implementations (e.g., the 1F1B schedule~\cite{narayanan2021efficient}), gradient synchronization across data-parallel replicas, typically a blocking All-Reduce, commences only after all micro-batches have completed their forward and backward passes. Within a single data center, high-bandwidth, low-latency interconnects often enable this communication to overlap effectively with computation. In contrast, under Cross-DC conditions, constrained bandwidth and elevated latency substantially prolong the All-Reduce operation, creating pronounced end-of-step idle periods during which accelerators stall while awaiting inter-datacenter communication. This effect fundamentally limits scalability and degrades training throughput.
+
+% \textbf{Our Contribution.} To overcome this bottleneck in Cross-DC training, we propose \textbf{Polar-SGD} (Prefix-based Communication Overlap and Error Correction), a prefix-based early synchronization framework that overlaps gradient communication with micro-batch computation, and stabilizes the asynchronous update via predictive error feedback. Unlike Local-SGD~\cite{stich2019local, assran2022fedavg} that performs multiple local optimizer steps, POLAR-SGD retains one optimizer step per mini-batch but triggers non-blocking All-Reduce ahead of schedule~\cite{yu2023cross, li2023splitpipe}.
+
+% - \textbf{Pipelined Gradient Communication}: Rather than performing a single monolithic All-Reduce at the end of a mini-batch, we launch non-blocking All-Reduce on the prefix-accumulated gradient and offload it to a dedicated communication stream. This overlaps gradient communication with the computation of remaining micro-batches, eliminating the synchronization tail in Cross-DC scenarios~\cite{li2023splitpipe, jia2023cross}.
+
+% - \textbf{Predictive Error Correction}:  Pipelined communication introduces a new challenge: workers compute gradients for subsequent micro-batches using model weights that have not yet incorporated globally synchronized gradients from prior micro-batches. This asynchrony can introduce gradient staleness and destabilize convergence. To address this, we introduce a lightweight error-feedback mechanism that tracks the discrepancy between locally predicted gradients and globally synchronized gradients, applying corrective terms to subsequent updates~\cite{stich2018sparsified, zhang2023errorfeedback, zhou2023integrating}. This ensures robust convergence despite the asynchronous communication schedule.
+
+% Our framework is specifically designed for low-bandwidth, high-latency Cross-DC environments. In experiments simulating realistic Cross-DC network conditions (30 Gb/s bandwidth, 50 ms latency), POLAR-SGD achieves a \textbf{1.87$\times$} training throughput improvement over standard DP+PP implementations while maintaining model convergence quality. As validated by our ablation studies, both pipelined communication and error correction are essential to our method's effectiveness~\cite{yu2023cross, li2023splitpipe, jia2023cross}.
+
+% \textbf{Summary of Contributions}:
+% \begin{enumerate}
+%     \item We identify and characterize the communication bottleneck in Cross-DC DP+PP training, demonstrating that blocking All-Reduce operations create significant accelerator idle time under WAN conditions~\cite{yu2023cross, li2023splitpipe}.
+%     \item We propose POLAR-SGD, which employs pipelined gradient communication and predictive error correction to hide communication latency behind computation~\cite{li2023splitpipe, zhang2023errorfeedback, zhou2023integrating}.
+%     \item We provide theoretical analysis demonstrating that our error-feedback mechanism ensures convergence guarantees equivalent to synchronous SGD~\cite{stich2019local, stich2018sparsified, assran2022fedavg, zhang2023errorfeedback}.
+%     \item We conduct comprehensive experiments showing 1.87$\times$ throughput improvement in Cross-DC settings while maintaining model quality~\cite{li2023splitpipe, yu2023cross, jia2023cross}.
+% \end{enumerate}
+
+% This work provides a practical and theoretically grounded path forward for efficient large-scale model training across geographically distributed data centers.
+
+\textbf{Contributions.}
+We propose \textbf{Polar-SGD}, a prefix-based early synchronization framework designed to address the communication bottleneck in Cross-DC data-parallel and pipeline-parallel (DP+PP) training. Our contributions are:
+\begin{enumerate}
+    \item \textbf{Pipelined Gradient Communication:} Rather than waiting until the end of each mini-batch to synchronize, Polar-SGD triggers non-blocking All-Reduce operations on prefix-accumulated gradients during micro-batch computation, fully overlapping communication with computation. This pipelined strategy effectively eliminates accelerator idle time and alleviates WAN-induced synchronization delays~\cite{yu2023cross}.
+    \item \textbf{Predictive Error Correction:} To address gradient staleness resulting from the relaxed synchronization schedule~\cite{stich2018sparsified, zhang2023errorfeedback, zhou2023integrating, DBLP:conf/icml/XuH22, DBLP:conf/aaai/XuHH21, DBLP:conf/icml/KarimireddyRSJ19}, we introduce a lightweight error-feedback mechanism that tracks the discrepancy between locally predicted and globally synchronized gradients, applying corrective terms in subsequent updates. This stabilizes training and ensures robust convergence, as corroborated by theoretical analysis and ablation studies.
+    \item \textbf{Comprehensive validation:} We provide theoretical convergence analysis and empirical evaluation. In simulated Cross-DC scenarios (30 Gb/s bandwidth, 50 ms latency), Polar-SGD achieves a 1.87$\times$ throughput improvement over standard DP+PP while matching model quality.
+\end{enumerate}
+This work charts a practical and theoretically grounded path for efficient, large-scale model training across wide-area networks.
+
+
+% \end{document}
