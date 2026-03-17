@@ -1,0 +1,89 @@
+<mxfile host="65bd71144e">
+    <diagram id="detailed" name="Page-1">
+        <mxGraphModel dx="812" dy="1539" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="760" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="10" value="云边端跨域训练场景" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=15;verticalAlign=top;container=0;" parent="1" vertex="1">
+                    <mxGeometry x="30" y="-110" width="830" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="20" value="云边端协同模型训练并行策略选择" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=15;verticalAlign=top;container=0;" parent="1" vertex="1">
+                    <mxGeometry x="30" y="30" width="830" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="30" value="针对云边端跨域训练场景的通信优化基本框架（集成模块）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=15;verticalAlign=top;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;container=0;" parent="1" vertex="1">
+                    <mxGeometry x="30" y="170" width="830" height="260" as="geometry"/>
+                </mxCell>
+                <mxCell id="100" value="约束" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;endArrow=classic;strokeWidth=2;fontStyle=1;fontFamily=Times New Roman;" parent="1" source="10" target="20" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="101" value="承载" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;endArrow=classic;strokeWidth=2;fontStyle=1;fontFamily=Times New Roman;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="20" target="30" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="445" y="150"/>
+                            <mxPoint x="445" y="150"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="31" value="模块 1：低比特量化[数据]" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontStyle=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=13;verticalAlign=top;container=0;" parent="1" vertex="1">
+                    <mxGeometry x="45" y="210" width="235" height="200" as="geometry">
+                        <mxRectangle x="20" y="70" width="190" height="30" as="alternateBounds"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="32" value="模块 2：集合通信流水化[通信库]" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontStyle=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=13;verticalAlign=top;container=0;" parent="1" vertex="1">
+                    <mxGeometry x="330" y="210" width="230" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="33" value="模块 3：计算-通信掩盖[训练框架]" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontStyle=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=13;verticalAlign=top;container=0;" parent="1" vertex="1">
+                    <mxGeometry x="610" y="210" width="235" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="311" value="① 优化器态压缩&#xa;动量累积 + 自适应归一化" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="57" y="244" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="312" value="② 随机量化编码&#xa;FP32 → 伯努利采样 → 1/2/8 bit" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="57" y="284" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="313" value="③ 误差反馈补偿&#xa;残差回注抑制量化噪声累积" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="57" y="324" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="314" value="④ 压缩收益输出&#xa;32× / 16× / 4× 降低跨域通信体积" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="57" y="364" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="321" value="① 网络感知分层&#xa;域内快链路 / 域间慢链路分治" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="342" y="244" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="322" value="② 层次化 All-Reduce&#xa;本地归约 → 跨域同步 → 本地广播" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="342" y="284" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="323" value="③ 分块流水线&#xa;张量切分 8～16 块，降低启动开销占比" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="342" y="324" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="324" value="④ 双流并行执行&#xa;Intra-stream 与 Inter-stream 协同" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="342" y="364" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="331" value="① 尾部问题识别&#xa;WAN 同步尾部难被剩余计算掩盖" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="622" y="244" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="332" value="② 前缀触发通信&#xa;micro-batch 前缀提前启动 All-Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="622" y="284" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="333" value="③ 异步执行与预测修正&#xa;通信不阻塞反向计算，保持收敛稳定" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="622" y="324" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="334" value="④ 混合并行增强&#xa;跨域 DP + 域内 PP 强化掩盖效果" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;strokeWidth=2;fontSize=11;spacing=4;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="622" y="364" width="208" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="11" value="域内快 / 域间慢&#xa;高 RTT、低带宽、抖动" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=13;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="50" y="-75" width="380" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="12" value="数据与算力跨域分布&#xa;云 / 边 / 端协同" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=13;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="458.83" y="-75" width="381.17" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="21" value="跨域层：DP&#xa;本地前反向 + 跨域同步" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=13;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="49" y="65" width="381.17" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="22" value="域内层：多维混合并行&#xa;DP / TP / PP" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;strokeWidth=2;fontSize=13;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="457.83" y="65" width="381.17" height="45" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

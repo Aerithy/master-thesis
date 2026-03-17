@@ -1,0 +1,99 @@
+<mxGraphModel dx="1320" dy="760" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1000" math="0" shadow="0">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <mxCell id="10" value="云边端跨域训练场景约束" style="swimlane;startSize=32;rounded=1;html=1;fillColor=#E8F0FE;strokeColor=#5B8FF9;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="20" y="20" width="420" height="260" as="geometry"/>
+    </mxCell>
+    <mxCell id="11" value="域内快、域间慢&#xa;高 RTT + 低带宽 + 抖动" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5B8FF9;" vertex="1" parent="10">
+      <mxGeometry x="20" y="50" width="180" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="12" value="数据跨域分布&#xa;云/边/端难集中" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5B8FF9;" vertex="1" parent="10">
+      <mxGeometry x="220" y="50" width="180" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="13" value="算力异构分布&#xa;云 GPU + 边缘节点 + 端侧设备" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5B8FF9;" vertex="1" parent="10">
+      <mxGeometry x="20" y="150" width="380" height="80" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="20" value="系统执行底座（并行骨干）" style="swimlane;startSize=32;rounded=1;html=1;fillColor=#E6FFFB;strokeColor=#13C2C2;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="470" y="20" width="460" height="260" as="geometry"/>
+    </mxCell>
+    <mxCell id="21" value="跨域层：Data Parallel (DP)&#xa;本地前反向 + 域间同步" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#13C2C2;" vertex="1" parent="20">
+      <mxGeometry x="20" y="50" width="200" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="22" value="域内层：多维混合并行&#xa;DP / TP / PP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#13C2C2;" vertex="1" parent="20">
+      <mxGeometry x="240" y="50" width="200" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="23" value="语义约束：每迭代一次跨域同步&#xa;稳定收敛 + 工程可落地" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#13C2C2;" vertex="1" parent="20">
+      <mxGeometry x="20" y="150" width="420" height="80" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="30" value="通信优化系统（核心模块）" style="swimlane;startSize=32;rounded=1;html=1;fillColor=#FFF7E6;strokeColor=#FA8C16;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="20" y="320" width="1410" height="300" as="geometry"/>
+    </mxCell>
+    <mxCell id="31" value="模块 1：低比特量化通信（第3章）&#xa;输入：梯度/参数张量&#xa;机制：1-bit/低比特 + 误差补偿&#xa;作用：先降通信体积" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#FA8C16;" vertex="1" parent="30">
+      <mxGeometry x="20" y="60" width="420" height="180" as="geometry"/>
+    </mxCell>
+    <mxCell id="32" value="模块 2：分层集合通信流水化（第4章）&#xa;输入：量化后张量&#xa;机制：域内聚合-域间同步-域内分发&#xa;+ 分块/流水/双流并发&#xa;作用：再提链路利用率" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#FA8C16;" vertex="1" parent="30">
+      <mxGeometry x="490" y="60" width="420" height="180" as="geometry"/>
+    </mxCell>
+    <mxCell id="33" value="模块 3：计算-通信掩盖（第5章）&#xa;输入：分层同步任务&#xa;机制：前缀触发 + 异步 All-Reduce&#xa;+ 预测/误差修正&#xa;作用：最后削减同步尾部" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#FA8C16;" vertex="1" parent="30">
+      <mxGeometry x="960" y="60" width="420" height="180" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="40" value="运行时编排与闭环" style="swimlane;startSize=32;rounded=1;html=1;fillColor=#F9F0FF;strokeColor=#722ED1;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="20" y="660" width="940" height="230" as="geometry"/>
+    </mxCell>
+    <mxCell id="41" value="Step 时序：&#xa;Local Compute → Quantize → Hierarchical AR → Overlap" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#722ED1;" vertex="1" parent="40">
+      <mxGeometry x="20" y="50" width="430" height="120" as="geometry"/>
+    </mxCell>
+    <mxCell id="42" value="协同关系：&#xa;减体积（模块1）→ 结构化加速（模块2）→&#xa;关键路径剥离（模块3）&#xa;形成乘性收益" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#722ED1;" vertex="1" parent="40">
+      <mxGeometry x="480" y="50" width="430" height="120" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="50" value="系统效果（端到端）" style="swimlane;startSize=32;rounded=1;html=1;fillColor=#F6FFED;strokeColor=#52C41A;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="990" y="660" width="440" height="230" as="geometry"/>
+    </mxCell>
+    <mxCell id="51" value="跨域吞吐提升" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#52C41A;" vertex="1" parent="50">
+      <mxGeometry x="20" y="50" width="120" height="120" as="geometry"/>
+    </mxCell>
+    <mxCell id="52" value="同步尾部缩短" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#52C41A;" vertex="1" parent="50">
+      <mxGeometry x="160" y="50" width="120" height="120" as="geometry"/>
+    </mxCell>
+    <mxCell id="53" value="对 WAN 抖动更鲁棒" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#52C41A;" vertex="1" parent="50">
+      <mxGeometry x="300" y="50" width="120" height="120" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="100" value="场景约束驱动架构选择" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#595959;" edge="1" parent="1" source="10" target="20">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="101" value="并行骨干承载通信优化" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#595959;" edge="1" parent="1" source="20" target="30">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="102" value="数据流" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#FA8C16;endArrow=block;" edge="1" parent="1" source="31" target="32">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="103" value="数据流" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#FA8C16;endArrow=block;" edge="1" parent="1" source="32" target="33">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="104" value="运行时编排" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#595959;" edge="1" parent="1" source="30" target="40">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="105" value="端到端收益" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#595959;" edge="1" parent="1" source="40" target="50">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="106" value="反馈调参" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#722ED1;dashed=1;endArrow=open;" edge="1" parent="1" source="50" target="30">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="1210" y="640"/>
+          <mxPoint x="1210" y="470"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+  </root>
+</mxGraphModel>
