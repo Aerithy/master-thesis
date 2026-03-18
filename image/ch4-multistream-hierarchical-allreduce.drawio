@@ -1,0 +1,127 @@
+<mxfile host="65bd71144e">
+    <diagram id="ch4-multistream" name="Page-1">
+        <mxGraphModel dx="1632" dy="926" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="10" value="层次化多流并行示意（Chapter 4）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontFamily=Times New Roman;strokeWidth=3;fontSize=24;align=center;verticalAlign=middle;" vertex="1" parent="1">
+                    <mxGeometry x="20" y="20" width="2150" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="20" value="Timeline View: chunk c0-c3, All-Reduce and Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontStyle=1;fontSize=18;verticalAlign=top;" vertex="1" parent="1">
+                    <mxGeometry x="20" y="110" width="2150" height="400" as="geometry"/>
+                </mxCell>
+                <mxCell id="21" value="Warmup" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontFamily=Times New Roman;fontStyle=1;fontSize=17;align=center;" vertex="1" parent="1">
+                    <mxGeometry x="80" y="146" width="270" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="22" value="Pipelining" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;fontFamily=Times New Roman;fontStyle=1;fontSize=17;align=center;" vertex="1" parent="1">
+                    <mxGeometry x="350" y="146" width="1520" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="23" value="Cooling" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontFamily=Times New Roman;fontStyle=1;fontSize=17;align=center;" vertex="1" parent="1">
+                    <mxGeometry x="1870" y="146" width="250" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="24" value="" style="shape=line;html=1;strokeColor=#b3b3b3;dashed=1;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="340" y="188" width="1" height="630" as="geometry"/>
+                </mxCell>
+                <mxCell id="25" value="" style="shape=line;html=1;strokeColor=#b3b3b3;dashed=1;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="850" y="188" width="1" height="630" as="geometry"/>
+                </mxCell>
+                <mxCell id="30" value="S0: 机内流（NVLink/PCIe）&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;Local Reduce + Local Broadcast / Local Reduce-Scatter + Local All-gather" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#cc0000;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=15;align=left;verticalAlign=top;" vertex="1" parent="1">
+                    <mxGeometry x="52" y="220" width="2088" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="31" value="S1: 集群内流（RDMA/InfiniBand）&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;/span&gt;Intra-domain All-Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#0000ff;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=15;align=left;verticalAlign=top;" vertex="1" parent="1">
+                    <mxGeometry x="52" y="314" width="2088" height="82" as="geometry"/>
+                </mxCell>
+                <mxCell id="32" value="S2: 集群间流（Wide Area Network）&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;Inter-domain All-Reduce（高往返时延 / 低带宽）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#6f0000;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=15;align=left;verticalAlign=top;" vertex="1" parent="1">
+                    <mxGeometry x="52" y="411" width="2088" height="82" as="geometry"/>
+                </mxCell>
+                <mxCell id="100" value="c0 Local Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2d7600;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="80" y="250" width="70" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="101" value="c1 Local Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2d7600;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="250" width="70" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="102" value="c0 Local Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006eaf;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="350" y="250" width="70" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="104" value="c1 Local Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006eaf;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="730" y="250" width="70" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="105" value="c3 Local Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2d7600;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="1420" y="250" width="70" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="106" value="c2 Local Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006eaf;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="1110" y="250" width="70" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="107" value="c3 Local Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006eaf;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="2050" y="250" width="70" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="120" value="c0 Intra-domain Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6a00ff;fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="170" y="346" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="123" value="c3 Intra-domain Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6a00ff;fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="1310" y="346" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="140" value="c0 Inter-domain All-Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#a20025;fontColor=#ffffff;strokeColor=#6f0000;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="350" y="438" width="380" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="141" value="c1 Inter-domain All-Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#a20025;fontColor=#ffffff;strokeColor=#6f0000;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="730" y="438" width="380" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="142" value="c2 Inter-domain All-Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#a20025;fontColor=#ffffff;strokeColor=#6f0000;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="1110" y="438" width="380" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="143" value="c3 Inter-domain All-Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#a20025;fontColor=#ffffff;strokeColor=#6f0000;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="1490" y="438" width="380" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="300" value="Legend and Mapping" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontStyle=1;fontSize=18;verticalAlign=top;" vertex="1" parent="1">
+                    <mxGeometry x="20" y="530" width="2150" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="301" value="Local All-Reduce（域内聚合）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2d7600;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=15;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="560" width="310" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="302" value="Local Broadcast（域内广播）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006eaf;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=15;" vertex="1" parent="1">
+                    <mxGeometry x="495" y="560" width="310" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="303" value="Intra-domain Reduce（集群内）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6a00ff;fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=15;" vertex="1" parent="1">
+                    <mxGeometry x="940" y="560" width="310" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="304" value="Inter-domain All-Reduce（集群间）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#a20025;fontColor=#ffffff;strokeColor=#6f0000;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=15;" vertex="1" parent="1">
+                    <mxGeometry x="1830" y="560" width="310" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="400" value="time -&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;fontFamily=Times New Roman;fontStyle=1;fontSize=16;" vertex="1" parent="1">
+                    <mxGeometry x="1080" y="118" width="70" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="122" value="c2 Intra-domain Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6a00ff;fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="930" y="346" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="103" value="c2 Local Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2d7600;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="860" y="250" width="70" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="121" value="c1 Intra-domain Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6a00ff;fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="550" y="346" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="506" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;strokeColor=#666666;endArrow=open;strokeWidth=2;fontFamily=Times New Roman;fontSize=12;" edge="1" parent="1" source="122" target="505">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="930" y="366" as="sourcePoint"/>
+                        <mxPoint x="730" y="366" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="505" value="c0 Intra-domain Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=light-dark(#990099,#FFA7FF);fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="730" y="346" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="511" value="c1 Intra-domain Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=light-dark(#990099,#FFA7FF);fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="1110" y="346" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="512" value="c2 Intra-domain Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=light-dark(#990099,#FFA7FF);fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="1490" y="346" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="513" value="c3 Intra-domain Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=light-dark(#990099,#FFA7FF);fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="1870" y="346" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="514" value="&lt;span style=&quot;color: rgb(255, 255, 255); font-size: 15px;&quot;&gt;Intra-domain Reduce（集群内）&lt;/span&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=light-dark(#990099,#FFA7FF);fontColor=#ffffff;strokeColor=#3700cc;strokeWidth=4;fontFamily=Times New Roman;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry x="1385" y="560" width="310" height="50" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
