@@ -16,42 +16,14 @@
 在 Cross-DC 环境中，以流水线并行为骨架（跨 DC PP）会迫使训练样本/激活在数据中心之间频繁穿梭，入口与跨段链路容易成为瓶颈，如图@fig:cross-dc-pp 所示。
 
 #figure(
-  rect(
-    width: 96%,
-    height: 200pt,
-    stroke: 0.5pt,
-    inset: 10pt,
-    [
-      #align(center + horizon)[
-        #text(size: 10pt)[
-          _[此处应插入：Cross-DC Pipeline Parallelism 示意图]_ \
-          #v(8pt)
-          复用自论文 Fig.1（pp_across_dcs.png）
-        ]
-      ]
-    ]
-  ),
+  image("../../supplementary/images/pp_across_dcs.png", width: 96%),
   caption: [跨数据中心流水线并行：数据必须汇入单入口 DC，产生入口瓶颈（复用自论文 Fig.1）]
 ) <fig:cross-dc-pp>
 
 相对地，以数据并行为骨架（跨 DC DP）将前/后向计算限定在数据中心内，仅在迭代末进行梯度同步，天然契合数据就地处理，并对网络波动更鲁棒，如图@fig:cross-dc-dp 所示。
 
 #figure(
-  rect(
-    width: 96%,
-    height: 200pt,
-    stroke: 0.5pt,
-    inset: 10pt,
-    [
-      #align(center + horizon)[
-        #text(size: 10pt)[
-          _[此处应插入：Cross-DC DP + Intra-DC PP 示意图]_ \
-          #v(8pt)
-          复用自论文 Fig.2（dp_across_dcs.png）
-        ]
-      ]
-    ]
-  ),
+  image("../../supplementary/images/dp_across_dcs.png", width: 96%),
   caption: [跨数据中心数据并行 + 数据中心内流水线并行：各 DC 处理本地数据，仅跨 WAN 同步梯度（复用自论文 Fig.2）]
 ) <fig:cross-dc-dp>
 
@@ -76,21 +48,7 @@ $ V_"PP" approx Theta(B dot A) $
 在 WAN 延迟主导时，即使框架在反向传播期间做了“分桶 All-Reduce”重叠，也容易出现迭代末尾无法被剩余计算掩盖的阻塞尾部。图@fig:dppp-timebreakdown 展示了 DP+PP 配置下跨 DC 与 DC 内开销分解：跨 DC 同步在每步中占据显著比例，导致 GPU 等待。
 
 #figure(
-  rect(
-    width: 96%,
-    height: 190pt,
-    stroke: 0.5pt,
-    inset: 10pt,
-    [
-      #align(center + horizon)[
-        #text(size: 10pt)[
-          _[此处应插入：DP+PP step 时间分解柱状图]_ \
-          #v(8pt)
-          复用自论文 Fig.3（bar_time_by_network.png）
-        ]
-      ]
-    ]
-  ),
+  image("../../supplementary/images/bar_time_by_network.png", width: 96%),
   caption: [DP+PP 配置下每步计算/通信开销分解：跨 DC 同步成为主要等待来源（复用自论文 Fig.3）]
 ) <fig:dppp-timebreakdown>
 
@@ -139,21 +97,7 @@ $ V_"PP" approx Theta(B dot A) $
 图@fig:polar-overview 对比了标准 DP+PP 与 POLAR-SGD 的单次迭代时间线。标准做法往往在处理完全部 $M$ 个 micro-batch 的反向传播后，才在迭代尾部执行阻塞式 All-Reduce，形成明显同步尾部；POLAR-SGD 则在 micro-batch 前缀完成时（$m=tau$）触发 *一次* 非阻塞 All-Reduce，并放入独立通信 stream，使其与后续 $(M-tau)$ 个 micro-batch 的反向传播重叠，从而缩短迭代尾部。
 
 #figure(
-  rect(
-    width: 98%,
-    height: 220pt,
-    stroke: 0.5pt,
-    inset: 10pt,
-    [
-      #align(center + horizon)[
-        #text(size: 10pt)[
-          _[此处应插入：Baseline vs POLAR-SGD 时间线对比图]_ \
-          #v(8pt)
-          复用自论文 Fig.4（polar-pp-timeline.png）
-        ]
-      ]
-    ]
-  ),
+  image("../../supplementary/images/polar-pp-timeline.png", width: 98%),
   caption: [DP+PP 下的执行时间线对比：POLAR-SGD 通过前缀触发的异步 All-Reduce 缩短同步尾部（复用自论文 Fig.4）]
 ) <fig:polar-overview>
 
@@ -368,63 +312,21 @@ $ (1/T) sum_(t=0)^(T-1) bb(E)[||nabla f(w_t)||^2] <= (2 (f(w_0)-f^*))/(eta T) + 
 论文进一步给出了按 step 对齐的 loss 曲线（验证 step-wise 稳定性）、按 wall-clock time 对齐的 loss 曲线（验证 time-to-target 提升），以及对“梯度缩放 / 误差反馈”两项关键机制的消融结果。
 
 #figure(
-  rect(
-    width: 92%,
-    height: 190pt,
-    stroke: 0.5pt,
-    inset: 10pt,
-    [
-      #align(center + horizon)[
-        #text(size: 10pt)[
-          _[此处应插入：loss vs steps 曲线]_ \
-          #v(8pt)
-          复用自论文 Fig.5（json_curves_by_steps.png）
-        ]
-      ]
-    ]
-  ),
+  image("../../supplementary/images/json_curves_by_steps.png", width: 92%),
   caption: [训练 loss 随 step 变化：POLAR-SGD 与基线高度一致，优于 LSGD 的偏移（复用自论文 Fig.5）]
 ) <fig:polar-loss-steps>
 
 按 step 对齐的结果用于回答“算法是否改变了每一步的优化行为”：如果曲线与基线接近，说明误差反馈确实在统计意义上补偿了前缀触发带来的偏差，使得训练轨迹没有明显漂移。
 
 #figure(
-  rect(
-    width: 92%,
-    height: 190pt,
-    stroke: 0.5pt,
-    inset: 10pt,
-    [
-      #align(center + horizon)[
-        #text(size: 10pt)[
-          _[此处应插入：loss vs time 曲线]_ \
-          #v(8pt)
-          复用自论文 Fig.6（json_curves_by_time.png）
-        ]
-      ]
-    ]
-  ),
+  image("../../supplementary/images/json_curves_by_time.png", width: 92%),
   caption: [训练 loss 随 wall-clock time 变化：POLAR-SGD 更快进入低 loss 区间（复用自论文 Fig.6）]
 ) <fig:polar-loss-time>
 
 按 wall-clock time 对齐则更直接反映系统收益：即便 step-wise 曲线接近，只要单步时间被缩短，模型就能更快达到同等 loss 区间，从而提升 time-to-target。
 
 #figure(
-  rect(
-    width: 92%,
-    height: 190pt,
-    stroke: 0.5pt,
-    inset: 10pt,
-    [
-      #align(center + horizon)[
-        #text(size: 10pt)[
-          _[此处应插入：消融实验 loss 曲线]_ \
-          #v(8pt)
-          复用自论文 Fig.7（json_curves_by_steps_ablation.png）
-        ]
-      ]
-    ]
-  ),
+  image("../../supplementary/images/json_curves_by_steps_ablation.png", width: 92%),
   caption: [消融实验：去除梯度缩放或误差反馈会带来轻微收敛退化或稳定性风险（复用自论文 Fig.7）]
 ) <fig:polar-ablation>
 
