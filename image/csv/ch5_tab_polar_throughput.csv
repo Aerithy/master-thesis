@@ -1,0 +1,4 @@
+method,throughput_tokens_per_s,relative_speedup
+DDP+1F1B,5350,1.00x
+LSGD (k=4),9433,1.76x
+POLAR-SGD,10016,1.87x

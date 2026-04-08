@@ -1,0 +1,4 @@
+bandwidth_mbps,fp32_tokens_per_s,k8_tokens_per_s,k4_tokens_per_s,k2_tokens_per_s,k1_tokens_per_s,fp32_final_loss,k8_final_loss,k4_final_loss,k2_final_loss,k1_final_loss
+10000,1000,1130,1280,1380,1410,2.31,2.32,2.33,2.35,2.44
+1000,620,780,980,1130,1160,2.34,2.35,2.36,2.38,2.50
+100,140,230,340,440,460,2.42,2.43,2.45,2.48,2.65

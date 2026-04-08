@@ -1,0 +1,4 @@
+link_type,bandwidth_gbps
+Intra-node NVLink,4800
+Inter-node IB,200
+Inter-domain WAN,20

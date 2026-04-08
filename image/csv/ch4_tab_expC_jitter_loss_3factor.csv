@@ -1,0 +1,5 @@
+exp_id,jitter,loss_rate,comm_tensor_size,chunk_size,focus
+C1,0 ms,0.1%,256 MB,32 MB (8 chunks),近理想链路对照
+C2,10 ms,0.5%,512 MB,32 MB (8-16 chunks),轻度抖动下时延稳定性
+C3,20 ms,1.0%,512/1024 MB,32/64 MB (8-16 chunks),中度抖动下吞吐波动
+C4,30 ms,2.0%,1024 MB,64 MB (16 chunks),重度抖动下尾部放大效应

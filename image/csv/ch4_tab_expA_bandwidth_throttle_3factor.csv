@@ -1,0 +1,5 @@
+exp_id,inter_bandwidth,inter_rtt,comm_tensor_size,chunk_size,focus
+A1,30 Gb/s,40 ms,256/512 MB,32 MB (8-16 chunks),轻度受限下尾部缩短
+A2,20 Gb/s,40 ms,256/512 MB,32 MB (8-16 chunks),中度受限下重叠效率
+A3,10 Gb/s,40 ms,512/1024 MB,32/64 MB (8-16 chunks),强受限下吞吐保持率
+A4,5 Gb/s,40 ms,512/1024 MB,64 MB (16 chunks),极限受限下退化斜率

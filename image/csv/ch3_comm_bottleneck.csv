@@ -1,0 +1,4 @@
+scenario,model,params_million,comm_per_iter_mib,comm_share_percent
+Intra-DC,ResNet-50,25.6,97.7,38
+Cross-DC,BERT-Large,340,1297,62
+Cross-DC,GPT-3 175B,175000,667572,82

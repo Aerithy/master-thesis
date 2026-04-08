@@ -1,0 +1,4 @@
+method,iter_time_ms,throughput_metric,speedup
+PyTorch 原生,445.2,4602,1.00x
+朴素层次化,408.0,5024,1.09x
+流水线层次化,329.7,6216,1.35x

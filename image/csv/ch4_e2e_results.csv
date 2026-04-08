@@ -1,0 +1,4 @@
+method,iter_time_ms,throughput_sps,comm_time_ms,gpu_util_percent
+PyTorch Native,445.2,4602,128.5,68
+Naive Hierarchical,408.0,5024,91.3,76
+Pipelined Hierarchical,329.7,6216,74.1,89

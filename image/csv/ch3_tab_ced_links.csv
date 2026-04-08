@@ -1,0 +1,4 @@
+link,bandwidth_example,rtt_example
+端→边（接入网）,10-200 Mb/s,5-30 ms
+边→云（广域网）,10-30 Gb/s,30-100 ms
+边/云域内（局域互联）,100-200 Gb/s,<1 ms

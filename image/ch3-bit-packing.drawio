@@ -1,0 +1,101 @@
+<mxfile host="65bd71144e">
+    <diagram id="ch3-bit-packing" name="Page-1">
+        <mxGraphModel dx="1235" dy="672" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="820" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d9d9d9;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="20" width="1360" height="530" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="&lt;b&gt;通用位宽打包与解包分层架构（输入层→编码层→通信接口层）&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=23;fontStyle=1;fontFamily=Times New Roman;" parent="1" vertex="1">
+                    <mxGeometry x="110" y="34" width="1180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="10" value="&lt;b&gt;L1 输入与预处理层（Producer Side）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=21;fontStyle=1;align=left;verticalAlign=top;spacingTop=6;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="95" width="1260" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="11" value="&lt;b&gt;量化索引输入模块&lt;/b&gt;&lt;br/&gt;q_t in {0,...,2^b-1}^N" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="95" y="145" width="255" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="12" value="&lt;b&gt;位宽配置模块&lt;/b&gt;&lt;br/&gt;b in {1,2,4,8,16}" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="415" y="145" width="252" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="13" value="&lt;b&gt;索引重排模块&lt;/b&gt;&lt;br/&gt;展平 / 分块 / 重排" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="733" y="145" width="253" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="15" value="&lt;b&gt;输入校验模块&lt;/b&gt;&lt;br/&gt;元素数 / 形状 / 取值范围检查" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1050" y="145" width="255" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="20" value="&lt;b&gt;L2 打包编码层（Bit Packing Engine）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=21;fontStyle=1;align=left;verticalAlign=top;spacingTop=6;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="285" width="1260" height="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="21" value="&lt;b&gt;字节对齐模块&lt;/b&gt;&lt;br/&gt;padding 到 8 的倍数" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="95" y="350" width="245" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="23" value="&lt;b&gt;字节编码模块&lt;/b&gt;&lt;br/&gt;PackedByte = Σ bit_i*2^(7-i)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="390" y="350" width="310" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="24" value="&lt;b&gt;原始信息封装模块&lt;/b&gt;&lt;br&gt;b/numel/original-shape" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="770" y="350" width="250" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="25" value="&lt;b&gt;压缩输出模块&lt;/b&gt;&lt;br&gt;uint8 buffer + metadata" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1085" y="350" width="220" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="26" value="&lt;b&gt;打包层输出接口&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="455" width="470" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="70" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;" parent="1" source="11" target="12" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="71" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;" parent="1" source="12" target="13" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="72" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="13" target="15" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="835" y="190.0000000000001" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="74" value="下发到打包层" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;" parent="1" source="15" target="21" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1195" y="330"/>
+                            <mxPoint x="195" y="330"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="75" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="21" target="23" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="315" y="395.0588235294117" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="77" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;" parent="1" source="23" target="24" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="78" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;" parent="1" source="24" target="25" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="79" value="压缩层输出" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;" parent="1" source="25" target="26" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1195" y="478"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="80" value="下发到通信层" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;" parent="1" source="26" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="195" y="570" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="83" value="b=16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;" parent="1" target="34" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="90" y="617.5294117647059" as="sourcePoint"/>
+                        <Array as="points">
+                            <mxPoint x="50" y="618"/>
+                            <mxPoint x="50" y="700"/>
+                            <mxPoint x="1000" y="700"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

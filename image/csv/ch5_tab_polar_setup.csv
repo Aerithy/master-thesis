@@ -1,0 +1,8 @@
+component,configuration
+Model,LLaMA-2 7B
+Dataset,WikiText-103
+Hardware,"32x NVIDIA A100 (40GB), 4 nodes"
+Network,"Bandwidth: 30 Gb/s; RTT: 50 ms"
+Parallelism,"Hybrid DP+PP (PP=8, DP=4); batch=256; microbatch=32"
+Software,"PyTorch 2.5; NCCL 2.23; CUDA 12.1"
+Metrics,"吞吐 (tokens/s), 训练 loss"

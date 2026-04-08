@@ -1,0 +1,5 @@
+exp_id,inter_bandwidth,inter_rtt,comm_tensor_size,chunk_size,focus
+B1,20 Gb/s,20 ms,256 MB,32 MB (8 chunks),低 RTT 基准
+B2,20 Gb/s,50 ms,512 MB,32 MB (8-16 chunks),典型跨域延迟
+B3,20 Gb/s,80 ms,512/1024 MB,32/64 MB (8-16 chunks),高延迟下尾部增长
+B4,20 Gb/s,120 ms,1024 MB,64 MB (16 chunks),超高延迟下同步鲁棒性

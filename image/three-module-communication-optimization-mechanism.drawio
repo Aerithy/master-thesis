@@ -1,0 +1,171 @@
+﻿<mxfile host="65bd71144e">
+    <diagram id="three-module-comm-opt" name="Page-1">
+        <mxGraphModel dx="1386" dy="787" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="692" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d9d9d9;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;" parent="1" vertex="1">
+                    <mxGeometry x="10" y="20" width="1580" height="660" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="&lt;b&gt;三个通信优化模块协同机制&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=24;fontStyle=1;fontFamily=Times New Roman;" parent="1" vertex="1">
+                    <mxGeometry x="550" y="30" width="520" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="20" value="&lt;b&gt;模块1： 低比特量化压缩（按需触发）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;verticalAlign=top;spacingTop=5;spacing=0;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="96" width="790" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="21" value="&lt;b&gt;输入： 当前 T_comm 过高，重叠失败风险上升&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=left;spacingLeft=14;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="145" width="415" height="44" as="geometry"/>
+                </mxCell>
+                <mxCell id="22" value="&lt;b&gt;执行： 量化 + 误差反馈&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="550" y="145" width="300" height="44" as="geometry"/>
+                </mxCell>
+                <mxCell id="23" value="&lt;b&gt;输出： 通信数据量下降 → T_comm 下降&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=left;spacingLeft=14;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="206" width="355" height="44" as="geometry"/>
+                </mxCell>
+                <mxCell id="24" value="&lt;b&gt;作用：扩宽掩盖窗口，使模块3可持续生效&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=left;spacingLeft=14;" parent="1" vertex="1">
+                    <mxGeometry x="490" y="206" width="360" height="44" as="geometry"/>
+                </mxCell>
+                <mxCell id="30" value="&lt;b&gt;模块3： 计算-通信掩盖（重叠引擎）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;verticalAlign=top;spacingTop=5;spacing=0;" parent="1" vertex="1">
+                    <mxGeometry x="920" y="96" width="630" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="31" value="&lt;b&gt;目标：让跨域通信被域内计算掩盖&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;spacingLeft=0;" parent="1" vertex="1">
+                    <mxGeometry x="958" y="145" width="292" height="44" as="geometry"/>
+                </mxCell>
+                <mxCell id="32" value="&lt;b&gt;前缀触发 + 异步 All-Reduce&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1270" y="145" width="245" height="44" as="geometry"/>
+                </mxCell>
+                <mxCell id="33" value="&lt;b&gt;判断： T_comm ≤ T_comp(profiled,target)&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="958" y="206" width="557" height="44" as="geometry"/>
+                </mxCell>
+                <mxCell id="40" value="&lt;b&gt;运行时 Profiling 与阈值更新&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;verticalAlign=top;spacingTop=5;spacing=0;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="328" width="1270" height="122" as="geometry"/>
+                </mxCell>
+                <mxCell id="41" value="&lt;b&gt;采样 T_comm&lt;br&gt;(WAN All-Reduce 时延)&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=3;fontFamily=Times New Roman;fontSize=16;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="185" y="374" width="285" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="42" value="&lt;b&gt;采样 T_comp&lt;br&gt;(可重叠计算窗口)&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=3;fontFamily=Times New Roman;fontSize=16;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="374" width="310" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="43" value="&lt;b&gt;更新 target/阈值&lt;br&gt;平滑 + 迟滞&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=3;fontFamily=Times New Roman;fontSize=16;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="374" width="320" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="50" value="&lt;b&gt;模块2： 跨域集合通信流水化（基础能力，永久开启）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;verticalAlign=top;spacingTop=5;spacing=0;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="498" width="900" height="162" as="geometry"/>
+                </mxCell>
+                <mxCell id="51" value="&lt;b&gt;① 域内聚合&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="140" y="550" width="395" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="52" value="&lt;b&gt;② 域间同步（WAN）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="555" y="550" width="385" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="53" value="&lt;b&gt;③ 域内广播&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="140" y="600" width="395" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="54" value="&lt;b&gt;④ 分块流水 + 双流并行（持续启用）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="555" y="600" width="385" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="60" value="&lt;b&gt;阈值判断&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1038" y="520" width="194" height="142" as="geometry"/>
+                </mxCell>
+                <mxCell id="61" value="&lt;b&gt;T_comm &amp;gt; 阈值&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1310" y="525" width="240" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="62" value="&lt;b&gt;T_comm ≤ 阈值&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=18;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1310" y="615" width="240" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="70" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#b85450;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="61" target="20" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1560" y="548"/>
+                            <mxPoint x="1560" y="68"/>
+                            <mxPoint x="485" y="68"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="83" value="触发模块1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="70">
+                    <mxGeometry x="0.0571" y="-1" relative="1" as="geometry">
+                        <mxPoint x="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="71" value="模块1/3协同" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;" parent="1" source="24" target="31" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="900" y="228"/>
+                            <mxPoint x="900" y="167"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="72" value="协同稳定运行" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#82b366;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;" parent="1" source="24" target="33" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="675" y="290"/>
+                            <mxPoint x="1100" y="290"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="73" value="profiling" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;" parent="1" source="33" target="42" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1025" y="320"/>
+                            <mxPoint x="660" y="320"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="74" value="融合" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;" parent="1" source="42" target="43" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="75" value="判定" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;entryX=1;entryY=0;entryDx=0;entryDy=0;" parent="1" source="33" target="60" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1235" y="556"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="76" value="更新判据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" parent="1" source="43" target="33" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1376" y="399"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="77" value="压缩后回注" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;labelBackgroundColor=#d9d9d9;" edge="1" parent="1" source="23" target="50">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="60" y="228"/>
+                            <mxPoint x="60" y="600"/>
+                            <mxPoint x="120" y="600"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="78" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#b85450;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;" edge="1" parent="1" source="60" target="61">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="79" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#82b366;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="60" target="62">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1270" y="591"/>
+                            <mxPoint x="1270" y="638"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="81" value="profiling" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;entryX=0.25;entryY=1;entryDx=0;entryDy=0;fillColor=#e1d5e7;" edge="1" parent="1" source="50" target="41">
+                    <mxGeometry x="-0.2432" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="256" y="470"/>
+                            <mxPoint x="256" y="470"/>
+                        </Array>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="82" value="融合" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=16;fontStyle=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="41" target="43">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="328" y="480"/>
+                            <mxPoint x="1010" y="480"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

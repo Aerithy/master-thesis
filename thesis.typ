@@ -6,15 +6,13 @@
 
   在大语言模型训练中，分布式训练技术已成为支撑大规模模型训练的核心基础。随着训练数据与算力资源从“单一数据中心”走向“云-边-端协同”的跨域形态——数据分布在云端数据湖、边缘微型数据中心与端侧设备，算力分散在中心云 GPU 集群、边缘 GPU/CPU 节点与部分端侧加速器——训练系统面临更强的异构性：域内链路（如同机 NVLink/PCIe、同域 RDMA）高带宽低时延，而跨域链路（边缘到云、边缘到边缘、端到边缘的蜂窝/宽带接入）往往带宽更低、RTT 更高且抖动更大。由此产生的梯度同步通信开销更容易进入迭代关键路径，成为制约云边端协同训练吞吐与时延的关键瓶颈。
 
-  针对上述挑战，本文以“跨域（Cloud–Edge–Device）分布式训练通信优化”为目标，从通信量、集合通信调度、计算-通信重叠三个层面开展系统性研究；其中跨数据中心训练可视为云-边/边-边跨域互联的一种典型强约束实例，可用于刻画云边端协同中的高 RTT 与低带宽特征。
+  针对上述挑战，本文以“跨域（Cloud–Edge–Device）分布式训练通信优化”为目标，从通信量、集合通信调度、计算-通信重叠三个层面开展系统性研究。其中，跨数据中心训练可视为云-边/边-边跨域互联的一种典型强约束实例，可用于刻画云边端协同中的高 RTT 与低带宽特征。本文主要工作如下：
 
-  针对上述挑战，本文从三个层面对跨数据中心分布式训练通信进行系统性优化研究，主要工作内容和创新点如下：
+  （1）通信数据量优化：提出基于 1-bit 量化的分布式优化器，将通信数据量降低至原有的 1/16 或 1/32，并设计与之配套的 1-bit All-Reduce 算法，实现对 1-bit 量化张量的高效支持。
 
-  1. *通信数据量优化*：提出基于1-bit量化的分布式优化器，将通信数据量降低至原有的1/16或1/32，并设计了与之配套的1-bit All-Reduce算法，实现了对1-bit量化张量的高效支持。
+  （2）集合通信调度优化：系统分析跨数据中心场景下的 All-Reduce 通信过程，针对 NCCL 的 CollNet 通信机制进行改进，提出多层流水线通信调度策略，充分利用集群间和集群内的异构带宽资源，显著加速通信过程。
 
-  2. *集合通信调度优化*：系统分析了跨数据中心场景下的All-Reduce通信过程，针对NCCL的CollNet通信机制进行改进，提出了多层流水线通信调度策略，充分利用集群间和集群内的异构带宽资源，显著加速通信过程。
-
-  3. *计算-通信重叠优化*：量化分析了混合并行策略下的计算-通信重叠程度，对比了跨数据中心通信与数据中心内部通信的重叠差异，通过重新设计混合并行模式下的梯度同步机制，有效提升了计算-通信的掩盖程度。
+  （3）计算-通信重叠优化：量化分析混合并行策略下的计算-通信重叠程度，对比跨数据中心通信与数据中心内部通信的重叠差异，通过重新设计混合并行模式下的梯度同步机制，有效提升计算-通信掩盖程度。
 ]
 
 #let abstract-en-text = [
@@ -22,13 +20,13 @@
 
   Distributed training has become the fundamental infrastructure for large language model training. As training data and compute resources evolve from a single data center to cloud-edge-device collaboration—where data resides across central clouds, edge micro-data centers, and end devices, and compute spans cloud GPU clusters and heterogeneous edge nodes—training systems face stronger cross-domain heterogeneity: intra-domain links (e.g., NVLink/PCIe, RDMA) are high-bandwidth and low-latency, while cross-domain links (edge-to-cloud, edge-to-edge, and device-to-edge access networks) are typically bandwidth-limited with higher RTT and larger jitter. As a result, gradient synchronization is more likely to fall onto the critical path and become a key bottleneck for end-to-end throughput and latency.
 
-  To address these challenges, this thesis targets communication optimization for cross-domain (Cloud–Edge–Device) distributed training. Cross-data-center training is treated as a representative, strongly-constrained instance of cloud-edge / edge-edge interconnects, capturing the key characteristics of low bandwidth and high RTT. We conduct systematic optimizations from three perspectives. The main contributions are:
+  To address these challenges, this thesis targets communication optimization for cross-domain (Cloud–Edge–Device) distributed training. Cross-data-center training is treated as a representative, strongly-constrained instance of cloud-edge / edge-edge interconnects, capturing the key characteristics of low bandwidth and high RTT. The main contributions are as follows:
 
-  1. *Communication Volume Optimization*: We propose a 1-bit quantization-based distributed optimizer that reduces communication volume to 1/16 or 1/32 of the original size, and design a compatible 1-bit All-Reduce algorithm to efficiently support 1-bit quantized tensors.
+  (1) *Communication Volume Optimization*: We propose a 1-bit quantization-based distributed optimizer that reduces communication volume to 1/16 or 1/32 of the original size, and design a compatible 1-bit All-Reduce algorithm to efficiently support 1-bit quantized tensors.
 
-  2. *Collective Communication Scheduling Optimization*: We systematically analyze the All-Reduce communication process in cross-data center scenarios, improve upon NCCL's CollNet communication mechanism, and propose a multi-level pipeline communication scheduling strategy that fully exploits heterogeneous bandwidth resources between and within clusters, significantly accelerating the communication process.
+  (2) *Collective Communication Scheduling Optimization*: We systematically analyze the All-Reduce communication process in cross-data-center scenarios, improve upon NCCL's CollNet communication mechanism, and propose a multi-level pipeline communication scheduling strategy that fully exploits heterogeneous bandwidth resources between and within clusters, significantly accelerating the communication process.
 
-  3. *Computation-Communication Overlap Optimization*: We quantitatively analyze the degree of computation-communication overlap in hybrid parallelism strategies, compare the overlap differences between cross-data center communication and intra-data center communication, and effectively improve the overlap degree by redesigning the gradient synchronization mechanism in hybrid parallelism mode.
+  (3) *Computation-Communication Overlap Optimization*: We quantitatively analyze the degree of computation-communication overlap in hybrid parallelism strategies, compare the overlap differences between cross-data-center communication and intra-data-center communication, and improve the overlap degree by redesigning the gradient synchronization mechanism in hybrid parallelism mode.
 ]
 
 #show: thesis.with(
@@ -56,13 +54,16 @@
   abstract-en: abstract-en-text,
   bibliography: bibliography.with("supplementary/bib.bib"),
   achievement: [
-    在国际会议上发表了多篇论文，
-    参与了多个开源项目的开发，
+    围绕云边端跨域分布式训练通信优化开展系统研究，形成了本文提出的关键方法与实验结果。
+
+    完成了相关实验平台搭建、算法实现与论文撰写工作。
   ],
   acknowledgements: [
-    感谢我的导师肖利民教授的指导和支持
+    衷心感谢导师肖利民教授在选题、研究思路与论文写作过程中给予的悉心指导。
 
-    感谢我的家人和朋友的鼓励和帮助
+    感谢课题组老师和同学在研究讨论、实验环境支持与论文修改方面提供的帮助。
+
+    感谢家人和朋友在学习与科研期间给予的理解、关心与支持。
   ],
   cv: [
     2023年09月 - 2026年06月：北京航空航天大学，计算机科学与技术专业，硕士研究生
@@ -79,6 +80,7 @@
 #include "src/chapters/ch3-quantization.typ"
 #include "src/chapters/ch4-scheduling.typ"
 #include "src/chapters/ch5-overlap.typ"
+#include "src/chapters/ch6-system-integration.typ"
 
 
 

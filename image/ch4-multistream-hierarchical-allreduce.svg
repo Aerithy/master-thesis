@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="650" viewBox="0 0 2200 650">
+  <defs>
+    <style>
+      .t{font-family:'Times New Roman',serif;fill:#111}
+      .title{font-size:34px;font-weight:700}
+      .h{font-size:26px;font-weight:700}
+      .m{font-size:21px;font-weight:700}
+      .s{font-size:18px;font-weight:700}
+    </style>
+  </defs>
+
+  <rect x="20" y="20" width="2160" height="72" fill="#f5f5f5" stroke="#666" stroke-width="4"/>
+  <text x="1100" y="66" class="t title" text-anchor="middle">层次化流水线 All-Reduce 时序图（重绘版）</text>
+
+  <rect x="20" y="110" width="2160" height="400" fill="#fff" stroke="#666" stroke-width="4"/>
+  <text x="1100" y="140" class="t h" text-anchor="middle">Timeline View: chunk c0-c3, All-Reduce and Broadcast</text>
+  <text x="1100" y="168" class="t s" text-anchor="middle">time -&gt;</text>
+
+  <rect x="80" y="146" width="270" height="42" fill="#fff2cc" stroke="#d6b656" stroke-width="3"/>
+  <text x="215" y="173" class="t m" text-anchor="middle">Warmup</text>
+  <rect x="350" y="146" width="1520" height="42" fill="#e1d5e7" stroke="#9673a6" stroke-width="3"/>
+  <text x="1110" y="173" class="t m" text-anchor="middle">Pipelining</text>
+  <rect x="1870" y="146" width="250" height="42" fill="#d5e8d4" stroke="#82b366" stroke-width="3"/>
+  <text x="1995" y="173" class="t m" text-anchor="middle">Cooling</text>
+
+  <rect x="52" y="220" width="2088" height="80" fill="#fff" stroke="#cc0000" stroke-width="4"/>
+  <text x="62" y="248" class="t s">S0: 机内流（NVLink/PCIe）</text>
+  <text x="330" y="248" class="t s">Local Reduce + Local Broadcast / Local Reduce-Scatter + Local All-gather</text>
+
+  <rect x="52" y="314" width="2088" height="82" fill="#fff" stroke="#0000ff" stroke-width="4"/>
+  <text x="62" y="343" class="t s">S1: 集群内流（RDMA/InfiniBand）</text>
+  <text x="330" y="343" class="t s">Intra-domain All-Reduce</text>
+
+  <rect x="52" y="411" width="2088" height="82" fill="#fff" stroke="#6f0000" stroke-width="4"/>
+  <text x="62" y="440" class="t s">S2: 集群间流（Wide Area Network）</text>
+  <text x="420" y="440" class="t s">Inter-domain All-Reduce（高往返时延 / 低带宽）</text>
+
+  <rect x="80" y="250" width="90" height="40" fill="#60a917" stroke="#2d7600" stroke-width="4"/>
+  <text x="125" y="275" class="t s" fill="#fff" text-anchor="middle">c0 Local</text>
+  <text x="125" y="292" class="t s" fill="#fff" text-anchor="middle">Reduce</text>
+
+  <rect x="350" y="250" width="120" height="40" fill="#1ba1e2" stroke="#006eaf" stroke-width="4"/>
+  <text x="410" y="275" class="t s" fill="#fff" text-anchor="middle">c0 Local</text>
+  <text x="410" y="292" class="t s" fill="#fff" text-anchor="middle">Broadcast</text>
+
+  <rect x="480" y="250" width="90" height="40" fill="#60a917" stroke="#2d7600" stroke-width="4"/>
+  <text x="525" y="275" class="t s" fill="#fff" text-anchor="middle">c1 Local</text>
+  <text x="525" y="292" class="t s" fill="#fff" text-anchor="middle">Reduce</text>
+
+  <rect x="730" y="250" width="120" height="40" fill="#1ba1e2" stroke="#006eaf" stroke-width="4"/>
+  <text x="790" y="275" class="t s" fill="#fff" text-anchor="middle">c1 Local</text>
+  <text x="790" y="292" class="t s" fill="#fff" text-anchor="middle">Broadcast</text>
+
+  <rect x="860" y="250" width="90" height="40" fill="#60a917" stroke="#2d7600" stroke-width="4"/>
+  <text x="905" y="275" class="t s" fill="#fff" text-anchor="middle">c2 Local</text>
+  <text x="905" y="292" class="t s" fill="#fff" text-anchor="middle">Reduce</text>
+
+  <rect x="1110" y="250" width="120" height="40" fill="#1ba1e2" stroke="#006eaf" stroke-width="4"/>
+  <text x="1170" y="275" class="t s" fill="#fff" text-anchor="middle">c2 Local</text>
+  <text x="1170" y="292" class="t s" fill="#fff" text-anchor="middle">Broadcast</text>
+
+  <rect x="1420" y="250" width="90" height="40" fill="#60a917" stroke="#2d7600" stroke-width="4"/>
+  <text x="1465" y="275" class="t s" fill="#fff" text-anchor="middle">c3 Local</text>
+  <text x="1465" y="292" class="t s" fill="#fff" text-anchor="middle">Reduce</text>
+
+  <rect x="2050" y="250" width="120" height="40" fill="#1ba1e2" stroke="#006eaf" stroke-width="4"/>
+  <text x="2110" y="275" class="t s" fill="#fff" text-anchor="middle">c3 Local</text>
+  <text x="2110" y="292" class="t s" fill="#fff" text-anchor="middle">Broadcast</text>
+
+  <rect x="170" y="346" width="180" height="40" fill="#6a00ff" stroke="#3700cc" stroke-width="4"/>
+  <text x="260" y="371" class="t s" fill="#fff" text-anchor="middle">c0 Intra-domain Reduce</text>
+  <rect x="550" y="346" width="180" height="40" fill="#6a00ff" stroke="#3700cc" stroke-width="4"/>
+  <text x="640" y="371" class="t s" fill="#fff" text-anchor="middle">c1 Intra-domain Reduce</text>
+  <rect x="730" y="346" width="180" height="40" fill="#990099" stroke="#3700cc" stroke-width="4"/>
+  <text x="820" y="371" class="t s" fill="#fff" text-anchor="middle">c0 Intra-domain Broadcast</text>
+  <rect x="930" y="346" width="180" height="40" fill="#6a00ff" stroke="#3700cc" stroke-width="4"/>
+  <text x="1020" y="371" class="t s" fill="#fff" text-anchor="middle">c2 Intra-domain Reduce</text>
+  <rect x="1110" y="346" width="180" height="40" fill="#990099" stroke="#3700cc" stroke-width="4"/>
+  <text x="1200" y="371" class="t s" fill="#fff" text-anchor="middle">c1 Intra-domain Broadcast</text>
+  <rect x="1310" y="346" width="180" height="40" fill="#6a00ff" stroke="#3700cc" stroke-width="4"/>
+  <text x="1400" y="371" class="t s" fill="#fff" text-anchor="middle">c3 Intra-domain Reduce</text>
+  <rect x="1490" y="346" width="180" height="40" fill="#990099" stroke="#3700cc" stroke-width="4"/>
+  <text x="1580" y="371" class="t s" fill="#fff" text-anchor="middle">c2 Intra-domain Broadcast</text>
+  <rect x="1870" y="346" width="180" height="40" fill="#990099" stroke="#3700cc" stroke-width="4"/>
+  <text x="1960" y="371" class="t s" fill="#fff" text-anchor="middle">c3 Intra-domain Broadcast</text>
+
+  <rect x="350" y="438" width="380" height="40" fill="#a20025" stroke="#6f0000" stroke-width="4"/>
+  <text x="540" y="463" class="t s" fill="#fff" text-anchor="middle">c0 Inter-domain All-Reduce</text>
+  <rect x="730" y="438" width="380" height="40" fill="#a20025" stroke="#6f0000" stroke-width="4"/>
+  <text x="920" y="463" class="t s" fill="#fff" text-anchor="middle">c1 Inter-domain All-Reduce</text>
+  <rect x="1110" y="438" width="380" height="40" fill="#a20025" stroke="#6f0000" stroke-width="4"/>
+  <text x="1300" y="463" class="t s" fill="#fff" text-anchor="middle">c2 Inter-domain All-Reduce</text>
+  <rect x="1490" y="438" width="380" height="40" fill="#a20025" stroke="#6f0000" stroke-width="4"/>
+  <text x="1680" y="463" class="t s" fill="#fff" text-anchor="middle">c3 Inter-domain All-Reduce</text>
+
+  <rect x="20" y="530" width="2160" height="100" fill="#f5f5f5" stroke="#666" stroke-width="4"/>
+  <text x="1100" y="560" class="t h" text-anchor="middle">Legend and Mapping</text>
+  <rect x="50" y="560" width="310" height="50" fill="#60a917" stroke="#2d7600" stroke-width="4"/>
+  <text x="205" y="592" class="t m" fill="#fff" text-anchor="middle">Local All-Reduce（域内聚合）</text>
+  <rect x="495" y="560" width="310" height="50" fill="#1ba1e2" stroke="#006eaf" stroke-width="4"/>
+  <text x="650" y="592" class="t m" fill="#fff" text-anchor="middle">Local Broadcast（域内广播）</text>
+  <rect x="940" y="560" width="310" height="50" fill="#6a00ff" stroke="#3700cc" stroke-width="4"/>
+  <text x="1095" y="592" class="t m" fill="#fff" text-anchor="middle">Intra-domain Reduce（集群内）</text>
+  <rect x="1385" y="560" width="310" height="50" fill="#990099" stroke="#3700cc" stroke-width="4"/>
+  <text x="1540" y="592" class="t m" fill="#fff" text-anchor="middle">Intra-domain Broadcast（集群内）</text>
+  <rect x="1830" y="560" width="310" height="50" fill="#a20025" stroke="#6f0000" stroke-width="4"/>
+  <text x="1985" y="592" class="t m" fill="#fff" text-anchor="middle">Inter-domain All-Reduce（集群间）</text>
+</svg>

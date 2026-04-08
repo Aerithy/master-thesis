@@ -1,0 +1,4 @@
+method,comm_time_ms,relative_to_baseline,gpu_util_percent
+PyTorch 原生,128.5,1.00x,68
+朴素层次化,91.3,0.71x,76
+流水线层次化,74.1,0.58x,89

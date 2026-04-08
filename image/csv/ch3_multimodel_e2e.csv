@@ -1,0 +1,4 @@
+model,fp32_ttt_min,kbit_ttt_min,fp32_throughput_metric,kbit_throughput_metric
+ResNet-50,128,95,4620,6180
+BERT-Large,214,158,3090,4350
+LLaMA-7B,680,492,980,1320

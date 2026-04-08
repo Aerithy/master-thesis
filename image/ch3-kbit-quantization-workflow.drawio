@@ -1,0 +1,173 @@
+<mxfile host="65bd71144e">
+    <diagram id="ch3-kbit-workflow" name="Page-1">
+        <mxGraphModel dx="1500" dy="816" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="820" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d9d9d9;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="20" width="1360" height="750" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="&lt;b&gt;统一 k-bit 随机舍入量化细粒度分层架构图（Framework → Compression → Collective）&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=23;fontStyle=1;fontFamily=Times New Roman;" parent="1" vertex="1">
+                    <mxGeometry x="170" y="34" width="1060" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="10" value="&lt;b&gt;L1 框架层（Distributed Training Framework）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=21;fontStyle=1;align=left;verticalAlign=top;spacingTop=6;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="95" width="1260" height="155" as="geometry"/>
+                </mxCell>
+                <mxCell id="11" value="&lt;b&gt;训练编排子模块&lt;/b&gt;&lt;br&gt;Forward/Backward 调度" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="95" y="140" width="210" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="12" value="&lt;b&gt;梯度收集子模块&lt;/b&gt;&lt;br&gt;参数梯度 flatten / bucket" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="325" y="140" width="245" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="13" value="&lt;b&gt;量化入口接口&lt;/b&gt;&lt;br&gt;输出 G_t, delta_t, b" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="590" y="140" width="205" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="14" value="&lt;b&gt;参数更新子模块&lt;/b&gt;&lt;br&gt;接收 G&#39; 执行 optimizer.step" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="815" y="140" width="250" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="15" value="&lt;b&gt;状态管理子模块&lt;/b&gt;&lt;br&gt;optimizer state / scaler / hooks" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1095" y="140" width="210" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="20" value="&lt;b&gt;L2 压缩层（K-bit Quantization Layer）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=21;fontStyle=1;align=left;verticalAlign=top;spacingTop=6;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="280" width="1260" height="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="21" value="&lt;b&gt;EMA 统计模块&lt;/b&gt;&lt;br&gt;m_t, v_t 更新" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="95" y="345" width="135" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="22" value="&lt;b&gt;归一化/裁剪模块&lt;/b&gt;&lt;br&gt;u_t = clip((m/v+1)/2)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="270" y="345" width="190" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="23" value="&lt;b&gt;随机舍入模块&lt;/b&gt;&lt;br&gt;Bernoulli(alpha)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="345" width="190" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="24" value="&lt;b&gt;误差反馈模块&lt;/b&gt;&lt;br&gt;delta_t 累积/回注" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="345" width="190" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="25" value="&lt;b&gt;位打包模块&lt;/b&gt;&lt;br&gt;PackBits(q_t, b)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="940" y="345" width="160" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="26" value="&lt;b&gt;元数据封装模块&lt;/b&gt;&lt;br&gt;shape/numel/bits" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1135" y="345" width="180" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="27" value="&lt;b&gt;压缩层输出接口&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="475" y="445" width="450" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="30" value="&lt;b&gt;L3 集合通信层（Collective Communication Layer）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=21;fontStyle=1;align=left;verticalAlign=top;spacingTop=6;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="530" width="1260" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="31" value="&lt;b&gt;位宽分流模块&lt;/b&gt;&lt;div&gt;&lt;b&gt;按 b 选择通信路径&lt;/b&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="570" width="200" height="95" as="geometry"/>
+                </mxCell>
+                <mxCell id="32" value="&lt;b&gt;低比特分片交换模块&lt;/b&gt;&lt;br&gt;AllToAll+AllGather" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="570" width="200" height="95" as="geometry"/>
+                </mxCell>
+                <mxCell id="33" value="&lt;b&gt;反量化聚合模块&lt;/b&gt;&lt;br&gt;dequantize_and_reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="590" y="570" width="240" height="95" as="geometry"/>
+                </mxCell>
+                <mxCell id="34" value="&lt;b&gt;16-bit 路径模块&lt;/b&gt;&lt;br&gt;直接 All-Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="570" width="210" height="95" as="geometry"/>
+                </mxCell>
+                <mxCell id="35" value="&lt;b&gt;统一输出模块&lt;/b&gt;&lt;br&gt;输出同步梯度 G&#39;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1100" y="570" width="220" height="95" as="geometry"/>
+                </mxCell>
+                <mxCell id="40" value="&lt;b&gt;全局配置：位宽 b in {1,2,4,8,16}；WorldGroup；误差反馈开关；压缩元数据协议&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=19;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="710" width="1260" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="70" value="层间入口 G_t" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="13" target="21" edge="1">
+                    <mxGeometry x="0.094" y="-10" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="693" y="270"/>
+                            <mxPoint x="163" y="270"/>
+                        </Array>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="71" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;" parent="1" source="21" target="22" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="72" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;" parent="1" source="22" target="23" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="73" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;" parent="1" source="23" target="24" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="74" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;" parent="1" source="24" target="25" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="75" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;" parent="1" source="25" target="26" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="76" value="压缩层输出" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="26" target="27" edge="1">
+                    <mxGeometry x="-0.0204" y="-8" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1225" y="468"/>
+                        </Array>
+                        <mxPoint x="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="77" value="下发到通信层" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="27" target="31" edge="1">
+                    <mxGeometry x="-0.0413" y="-8" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="50" y="468"/>
+                            <mxPoint x="50" y="618"/>
+                        </Array>
+                        <mxPoint x="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="78" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;" parent="1" source="31" target="32" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="79" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#82b366;strokeWidth=3;endArrow=classic;" parent="1" source="32" target="33" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="80" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;" parent="1" source="31" target="34" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="190" y="520"/>
+                            <mxPoint x="955" y="520"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="81" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#82b366;strokeWidth=3;endArrow=classic;" parent="1" source="33" target="35" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="710" y="690"/>
+                            <mxPoint x="1210" y="690"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="82" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#82b366;strokeWidth=3;endArrow=classic;" parent="1" source="34" target="35" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="83" value="同步梯度 G&#39; 回传" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#82b366;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="35" target="14" edge="1">
+                    <mxGeometry x="0.4152" y="-10" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1350" y="618"/>
+                            <mxPoint x="1350" y="120"/>
+                            <mxPoint x="940" y="120"/>
+                        </Array>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="84" value="反馈通道 delta" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="24" target="12" edge="1">
+                    <mxGeometry x="-0.0041" y="-10" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="815" y="310"/>
+                            <mxPoint x="448" y="310"/>
+                        </Array>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="85" value="配置注入" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="40" target="31" edge="1">
+                    <mxGeometry x="-0.0198" y="12" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="700" y="688"/>
+                            <mxPoint x="190" y="688"/>
+                        </Array>
+                        <mxPoint x="-1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

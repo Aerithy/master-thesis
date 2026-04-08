@@ -1,0 +1,125 @@
+<mxfile host="65bd71144e">
+    <diagram id="ch4-hier-topo-v3" name="Page-1">
+        <mxGraphModel dx="1500" dy="816" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d9d9d9;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="20" width="1360" height="670" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="&lt;b&gt;层次化 All-Reduce 拓扑与分层通信路径&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=23;fontStyle=1;fontFamily=Times New Roman;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="34" width="1160" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="10" value="&lt;b&gt;L1 控制层（组构建与调度策略）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=21;fontStyle=1;align=left;verticalAlign=top;spacingTop=6;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="95" width="1260" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="11" value="&lt;b&gt;Local Group 发现&lt;/b&gt;&lt;br&gt;按节点划分域内通信组" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="158" width="300" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="12" value="&lt;b&gt;Inter Group 构建&lt;/b&gt;&lt;br&gt;每节点选代表 Rank0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="430" y="158" width="300" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="13" value="&lt;b&gt;流水线调度器&lt;/b&gt;&lt;br&gt;chunk 切分 + 双流 + event 依赖" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="158" width="300" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="14" value="&lt;b&gt;运行参数&lt;/b&gt;&lt;br&gt;chunk_size / overlap_window" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1090" y="158" width="210" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="20" value="&lt;b&gt;L2 执行拓扑层（域内高带宽 + 域间低带宽）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=21;fontStyle=1;align=left;verticalAlign=top;spacingTop=6;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="285" width="1260" height="215" as="geometry"/>
+                </mxCell>
+                <mxCell id="21" value="&lt;b&gt;Node A (Cloud)&lt;/b&gt;&lt;br&gt;A-GPU1 / A-GPU2 / A-Rank0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="350" width="250" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="22" value="&lt;b&gt;Node B (Edge-1)&lt;/b&gt;&lt;br&gt;B-GPU1 / B-GPU2 / B-Rank0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="390" y="350" width="250" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="23" value="&lt;b&gt;Node C (Edge-2)&lt;/b&gt;&lt;br&gt;C-GPU1 / C-GPU2 / C-Rank0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="350" width="250" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="24" value="&lt;b&gt;Inter Group Ring/Tree&lt;/b&gt;&lt;br&gt;A-Rank0 ↔ B-Rank0 ↔ C-Rank0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="970" y="350" width="330" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="25" value="&lt;b&gt;跨域链路特征&lt;/b&gt;&lt;br&gt;低带宽 / 高 RTT" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="970" y="420" width="330" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="30" value="&lt;b&gt;L3 流水线通信层（Stage-1 / Stage-2 / Stage-3）&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#efefef;strokeColor=#666666;strokeWidth=3;fontFamily=Times New Roman;fontSize=21;fontStyle=1;align=left;verticalAlign=top;spacingTop=6;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="520" width="1260" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="31" value="&lt;b&gt;Stage-1&lt;/b&gt;&lt;br&gt;Local Reduce" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="575" width="250" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="32" value="&lt;b&gt;Stage-2&lt;/b&gt;&lt;br&gt;Inter Reduce (代表进程)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="575" width="220" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="33" value="&lt;b&gt;Stage-3&lt;/b&gt;&lt;br&gt;Local Broadcast" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="780" y="575" width="190" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="34" value="&lt;b&gt;输出&lt;/b&gt;&lt;br&gt;同步梯度块 C_i&#39;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1090" y="575" width="210" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="70" value="策略下发" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="13" target="31" edge="1">
+                    <mxGeometry x="-0.2991" y="-10" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="910" y="140"/>
+                            <mxPoint x="50" y="140"/>
+                            <mxPoint x="50" y="613"/>
+                        </Array>
+                        <mxPoint x="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="71" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="21" target="24" edge="1">
+                    <mxGeometry y="10" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="225" y="330"/>
+                            <mxPoint x="1135" y="330"/>
+                        </Array>
+                        <mxPoint x="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="72" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="22" target="24" edge="1">
+                    <mxGeometry x="-0.0701" y="10" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="515" y="300"/>
+                            <mxPoint x="1200" y="300"/>
+                        </Array>
+                        <mxPoint x="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="73" value="域内聚合" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="23" target="24" edge="1">
+                    <mxGeometry x="0.8154" y="65" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="805" y="320"/>
+                            <mxPoint x="1070" y="320"/>
+                        </Array>
+                        <mxPoint y="-1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="74" value="阶段映射" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="24" target="32" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1350" y="395"/>
+                            <mxPoint x="1350" y="540"/>
+                            <mxPoint x="570" y="540"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="75" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="31" target="32" edge="1">
+                    <mxGeometry x="-0.1111" y="23" relative="1" as="geometry">
+                        <mxPoint y="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="76" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#b85450;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="32" target="33" edge="1">
+                    <mxGeometry y="13" relative="1" as="geometry">
+                        <mxPoint y="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="77" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#82b366;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=17;fontStyle=1;labelBackgroundColor=none;" parent="1" source="33" target="34" edge="1">
+                    <mxGeometry y="13" relative="1" as="geometry">
+                        <mxPoint y="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

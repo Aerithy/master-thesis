@@ -1,0 +1,6 @@
+method,iter_time_ms,comm_share_percent,p95_tail_ms,throughput_metric,final_loss
+FP32 All-Reduce,445.2,41.2,168.0,4602,2.34
+FP16 All-Reduce,401.6,35.4,143.5,5108,2.35
+INT8 Quantization,362.9,29.7,121.4,5646,2.37
+Top-k + Error Feedback,378.4,33.1,156.2,5383,2.41
+Unified k-bit (4-bit),329.7,22.5,96.8,6216,2.36
