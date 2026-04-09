@@ -16,6 +16,13 @@ def _configure_plot_style() -> None:
     plt.rcParams["font.family"] = "Times New Roman"
     plt.rcParams["mathtext.fontset"] = "stix"
     plt.rcParams["axes.unicode_minus"] = False
+    # Increase default typography by about 2 points for better readability.
+    plt.rcParams["font.size"] = 12
+    plt.rcParams["axes.titlesize"] = 14
+    plt.rcParams["axes.labelsize"] = 12
+    plt.rcParams["xtick.labelsize"] = 11
+    plt.rcParams["ytick.labelsize"] = 11
+    plt.rcParams["legend.fontsize"] = 10
 
 
 def _save(fig: plt.Figure, filename: str) -> None:
@@ -45,7 +52,7 @@ def draw_ch3_comm_bottleneck() -> None:
     ax2.set_ylim(0, 100)
 
     for b, val in zip(bars, df["comm_per_iter_mib"]):
-        ax1.text(b.get_x() + b.get_width() / 2.0, val, f"{val:,.0f}", ha="center", va="bottom", fontsize=8)
+        ax1.text(b.get_x() + b.get_width() / 2.0, val, f"{val:,.0f}", ha="center", va="bottom", fontsize=10)
 
     _save(fig, "ch3-comm-bottleneck.svg")
 
@@ -69,7 +76,7 @@ def draw_ch3_experiment_results() -> None:
     ax1.set_ylabel("Throughput (tokens/s)")
     ax1.set_title("Speedup Under Bandwidth Constraints")
     ax1.grid(True, linestyle="--", alpha=0.3)
-    ax1.legend(frameon=False, fontsize=8)
+    ax1.legend(frameon=False, fontsize=10)
 
     for col, label, color in [
         ("fp32_final_loss", "FP32", "#8C8C8C"),
@@ -96,7 +103,8 @@ def draw_ch3_method_comparison() -> None:
 
     colors = ["#8C8C8C", "#5B8FF9", "#F6BD16", "#E8684A", "#61DDAA"]
 
-    ax1.bar(df["method"], df["throughput_tokens_per_s"], color=colors)
+    throughput_col = "throughput_tokens_per_s" if "throughput_tokens_per_s" in df.columns else "throughput_metric"
+    ax1.bar(df["method"], df[throughput_col], color=colors)
     ax1.set_ylabel("Throughput (tokens/s)")
     ax1.set_title("Method-wise End-to-End Throughput")
     ax1.grid(axis="y", linestyle="--", alpha=0.3)
@@ -108,7 +116,7 @@ def draw_ch3_method_comparison() -> None:
     ax2.set_title("Communication Cost and Tail Latency")
     ax2.grid(axis="y", linestyle="--", alpha=0.3)
     ax2.tick_params(axis="x", rotation=15)
-    ax2.legend(frameon=False, fontsize=8)
+    ax2.legend(frameon=False, fontsize=10)
 
     _save(fig, "ch3-method-comparison.svg")
 
@@ -128,10 +136,12 @@ def draw_ch3_multimodel_e2e() -> None:
     ax1.set_ylabel("Time to Target Loss (min)")
     ax1.set_title("End-to-End Convergence Time")
     ax1.grid(axis="y", linestyle="--", alpha=0.3)
-    ax1.legend(frameon=False, fontsize=8)
+    ax1.legend(frameon=False, fontsize=10)
 
-    ax2.bar([i - width / 2 for i in x], df["fp32_tokens_per_s"], width=width, color="#8C8C8C", label="FP32")
-    ax2.bar([i + width / 2 for i in x], df["kbit_tokens_per_s"], width=width, color="#61DDAA", label="Unified k-bit")
+    fp32_tp_col = "fp32_tokens_per_s" if "fp32_tokens_per_s" in df.columns else "fp32_throughput_metric"
+    kbit_tp_col = "kbit_tokens_per_s" if "kbit_tokens_per_s" in df.columns else "kbit_throughput_metric"
+    ax2.bar([i - width / 2 for i in x], df[fp32_tp_col], width=width, color="#8C8C8C", label="FP32")
+    ax2.bar([i + width / 2 for i in x], df[kbit_tp_col], width=width, color="#61DDAA", label="Unified k-bit")
     ax2.set_xticks(list(x))
     ax2.set_xticklabels(df["model"])
     ax2.set_ylabel("Throughput (tokens/s)")
@@ -152,7 +162,7 @@ def draw_ch4_comm_asymmetry() -> None:
     ax.grid(axis="y", linestyle="--", alpha=0.3)
 
     for b, v in zip(bars, df["bandwidth_gbps"]):
-        ax.text(b.get_x() + b.get_width() / 2.0, v, f"{int(v)}", ha="center", va="bottom", fontsize=9)
+        ax.text(b.get_x() + b.get_width() / 2.0, v, f"{int(v)}", ha="center", va="bottom", fontsize=11)
 
     _save(fig, "ch4-comm-asymmetry.svg")
 
@@ -174,7 +184,7 @@ def draw_ch4_e2e_results() -> None:
     ax2.set_title("Iteration and Communication Time")
     ax2.grid(axis="y", linestyle="--", alpha=0.3)
     ax2.tick_params(axis="x", rotation=12)
-    ax2.legend(frameon=False, fontsize=8)
+    ax2.legend(frameon=False, fontsize=10)
 
     _save(fig, "ch4-e2e-results.svg")
 
@@ -218,7 +228,7 @@ def draw_ch4_bandwidth_ratio_3factor() -> None:
     ax.set_title("Fixed Tensor (1024MB): Chunk Curves under Bandwidth Asymmetry")
     ax.set_xticks([5, 10, 20, 30])
     ax.grid(True, linestyle="--", alpha=0.3)
-    ax.legend(frameon=False, fontsize=9)
+    ax.legend(frameon=False, fontsize=11)
 
     _save(fig, "ch4-bandwidth-ratio-3factor.svg")
 
@@ -245,7 +255,7 @@ def draw_ch4_expA_bandwidth_throttle_3factor() -> None:
             f"{bw}, {rtt}\n{chunk}",
             ha="center",
             va="bottom",
-            fontsize=8,
+            fontsize=10,
         )
 
     _save(fig, "ch4-expA-bandwidth-throttle-3factor.svg")
@@ -273,7 +283,7 @@ def draw_ch4_expB_rtt_escalation_3factor() -> None:
     ax2.tick_params(axis="y", labelcolor="#61DDAA")
 
     for i, chunk in enumerate(df["chunk_size"]):
-        ax.text(i, rtt_vals[i] + 4, chunk, ha="center", va="bottom", fontsize=8)
+        ax.text(i, rtt_vals[i] + 4, chunk, ha="center", va="bottom", fontsize=10)
 
     ax.set_title("Exp-B: RTT Escalation with Tensor/Chunk Coupling")
 
@@ -298,10 +308,10 @@ def draw_ch4_expC_jitter_loss_3factor() -> None:
     ax.set_xlabel("Jitter/Loss Cases")
     ax.set_title("Exp-C: Jitter+Loss under 3-factor Control")
     ax.grid(axis="y", linestyle="--", alpha=0.3)
-    ax.legend(frameon=False, fontsize=9)
+    ax.legend(frameon=False, fontsize=11)
 
     for i, txt in enumerate(df["chunk_size"]):
-        ax.text(i, max(jitter_vals[i], loss_vals[i]) + 1.5, txt, ha="center", va="bottom", fontsize=8)
+        ax.text(i, max(jitter_vals[i], loss_vals[i]) + 1.5, txt, ha="center", va="bottom", fontsize=10)
 
     _save(fig, "ch4-expC-jitter-loss-3factor.svg")
 

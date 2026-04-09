@@ -17,14 +17,14 @@
 
 #figure(
   image("../../supplementary/images/pp_across_dcs.png", width: 96%),
-  caption: [跨数据中心流水线并行：数据必须汇入单入口 DC，产生入口瓶颈（复用自论文 Fig.1）]
+  caption: [跨数据中心流水线并行：数据必须汇入单入口 DC，产生入口瓶颈]
 ) <fig:cross-dc-pp>
 
 相对地，以数据并行为骨架（跨 DC DP）将前/后向计算限定在数据中心内，仅在迭代末进行梯度同步，天然契合数据就地处理，并对网络波动更鲁棒，如图@fig:cross-dc-dp 所示。
 
 #figure(
   image("../../supplementary/images/dp_across_dcs.png", width: 96%),
-  caption: [跨数据中心数据并行 + 数据中心内流水线并行：各 DC 处理本地数据，仅跨 WAN 同步梯度（复用自论文 Fig.2）]
+  caption: [跨数据中心数据并行 + 数据中心内流水线并行：各 DC 处理本地数据，仅跨 WAN 同步梯度]
 ) <fig:cross-dc-dp>
 
 因此，本章聚焦论文设定的层次化混合并行：跨 DC 采用 DP，同一数据中心内采用 PP（DP+PP）。该设定避免跨 DC 传输激活/样本，但引入新的关键瓶颈：跨 DC 梯度同步尾部（All-Reduce tail）。
@@ -50,7 +50,7 @@ $ V_"PP" approx Theta(B dot A) $
 
 #figure(
   image("../../supplementary/images/bar_time_by_network.png", width: 96%),
-  caption: [DP+PP 配置下每步计算/通信开销分解：跨 DC 同步成为主要等待来源（复用自论文 Fig.3）]
+  caption: [DP+PP 配置下每步计算/通信开销分解：跨 DC 同步成为主要等待来源]
 ) <fig:dppp-timebreakdown>
 
 面对同步尾部，一类直观做法是弱化同步（如 Local-SGD），但其本质是降低同步频率而非消除同步尾部，且会引入更强的优化漂移风险。本章采用论文提出的 POLAR-SGD：在不改变“每迭代一次全局同步”这一基本语义的前提下，通过 *前缀触发的异步 All-Reduce + 预测误差修正* 将同步从关键路径中剥离。
@@ -90,7 +90,7 @@ $ V_"PP" approx Theta(B dot A) $
     [$tau$], [通信触发的截断 micro-batch 索引],
     table.hline(),
   ),
-  caption: [POLAR-SGD 记号表（整理自论文 Notation 表）]
+  caption: [POLAR-SGD 记号表]
 ) <tab:polar-notation>
 
 == 详细方案设计与实现
@@ -99,7 +99,7 @@ $ V_"PP" approx Theta(B dot A) $
 
 #figure(
   image("../../supplementary/images/polar-pp-timeline.png", width: 98%),
-  caption: [DP+PP 下的执行时间线对比：POLAR-SGD 通过前缀触发的异步 All-Reduce 缩短同步尾部（复用自论文 Fig.4）]
+  caption: [DP+PP 下的执行时间线对比：POLAR-SGD 通过前缀触发的异步 All-Reduce 缩短同步尾部]
 ) <fig:polar-overview>
 
 POLAR-SGD 并非简单丢弃后缀 micro-batch 的梯度，而是通过 *梯度缩放 + 误差反馈* 将后缀信息以残差形式注入下一次迭代，以同时保持系统重叠收益与优化语义稳定性。
@@ -264,7 +264,7 @@ $ (1/T) sum_(t=0)^(T-1) bb(E)[||nabla f(w_t)||^2] <= (2 (f(w_0)-f^*))/(eta T) + 
     [Metrics], [吞吐（tokens/s），训练 loss],
     table.hline(),
   ),
-  caption: [实验设置（整理自论文 Table: setup）]
+  caption: [实验设置]
 ) <tab:polar-setup>
 
 === 端到端吞吐
@@ -283,7 +283,7 @@ $ (1/T) sum_(t=0)^(T-1) bb(E)[||nabla f(w_t)||^2] <= (2 (f(w_0)-f^*))/(eta T) + 
     [POLAR-SGD], [10,016], [1.87×],
     table.hline(),
   ),
-  caption: [Cross-DC 约束下端到端吞吐（整理自论文 Table: throughput）]
+  caption: [Cross-DC 约束下端到端吞吐]
 ) <tab:polar-throughput>
 
 从吞吐对比可以看出：在 Cross-DC 约束下，基线 DDP+1F1B 的尾部同步显著拉长了单步时间；LSGD 通过减少同步强度/频率获得了较大吞吐提升，但其优化语义偏离基线更明显；POLAR-SGD 在保持“每步一次同步”的节奏下仍获得最高吞吐，约为基线的 1.87 倍，说明“把同步从尾部挪到可重叠窗口”比“单纯减少同步”更契合 DP+PP 的系统结构。
@@ -300,21 +300,21 @@ $ (1/T) sum_(t=0)^(T-1) bb(E)[||nabla f(w_t)||^2] <= (2 (f(w_0)-f^*))/(eta T) + 
 
 #figure(
   image("../../supplementary/images/json_curves_by_steps.png", width: 92%),
-  caption: [训练 loss 随 step 变化：POLAR-SGD 与基线高度一致，优于 LSGD 的偏移（复用自论文 Fig.5）]
+  caption: [训练 loss 随 step 变化：POLAR-SGD 与基线高度一致，优于 LSGD 的偏移]
 ) <fig:polar-loss-steps>
 
 按 step 对齐的结果用于回答“算法是否改变了每一步的优化行为”：如果曲线与基线接近，说明误差反馈确实在统计意义上补偿了前缀触发带来的偏差，使得训练轨迹没有明显漂移。
 
 #figure(
   image("../../supplementary/images/json_curves_by_time.png", width: 92%),
-  caption: [训练 loss 随 wall-clock time 变化：POLAR-SGD 更快进入低 loss 区间（复用自论文 Fig.6）]
+  caption: [训练 loss 随 wall-clock time 变化：POLAR-SGD 更快进入低 loss 区间]
 ) <fig:polar-loss-time>
 
 按 wall-clock time 对齐则更直接反映系统收益：即便 step-wise 曲线接近，只要单步时间被缩短，模型就能更快达到同等 loss 区间，从而提升 time-to-target。
 
 #figure(
   image("../../supplementary/images/json_curves_by_steps_ablation.png", width: 92%),
-  caption: [消融实验：去除梯度缩放或误差反馈会带来轻微收敛退化或稳定性风险（复用自论文 Fig.7）]
+  caption: [消融实验：去除梯度缩放或误差反馈会带来轻微收敛退化或稳定性风险]
 ) <fig:polar-ablation>
 
 消融结果强调了两个机制的必要性：
