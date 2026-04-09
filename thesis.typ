@@ -6,9 +6,9 @@
 
   在大语言模型训练中，分布式训练技术已成为支撑大规模模型训练的核心基础。随着训练数据与算力资源从“单一数据中心”走向“云-边-端协同”的跨域形态——数据分布在云端数据湖、边缘微型数据中心与端侧设备，算力分散在中心云 GPU 集群、边缘 GPU/CPU 节点与部分端侧加速器——训练系统面临更强的异构性：域内链路（如同机 NVLink/PCIe、同域 RDMA）高带宽低时延，而跨域链路（边缘到云、边缘到边缘、端到边缘的蜂窝/宽带接入）往往带宽更低、RTT 更高且抖动更大。由此产生的梯度同步通信开销更容易进入迭代关键路径，成为制约云边端协同训练吞吐与时延的关键瓶颈。
 
-  针对上述挑战，本文以“跨域（Cloud–Edge–Device）分布式训练通信优化”为目标，从通信量、集合通信调度、计算-通信重叠三个层面开展系统性研究。其中，跨数据中心训练可视为云-边/边-边跨域互联的一种典型强约束实例，可用于刻画云边端协同中的高 RTT 与低带宽特征。本文主要工作如下：
+  针对上述挑战，本文以“跨域（Cloud–Edge–Device）分布式训练通信优化”为目标，从通信量、集合通信调度、计算-通信重叠三个层面开展系统性研究。本文主要工作如下：
 
-  （1）通信数据量优化：提出基于 1-bit 量化的分布式优化器，将通信数据量降低至原有的 1/16 或 1/32，并设计与之配套的 1-bit All-Reduce 算法，实现对 1-bit 量化张量的高效支持。
+  （1）通信数据量优化：提出 k-bit 随机舍入量化分布式优化方法，支持 $b in {1, 2, 4, 8, 16}$ 的可配置位宽。在受限链路条件下，通信数据量最高可降低至原有的 1/32，并可在压缩率与收敛稳定性之间进行可调折中；同时设计与之配套的量化同步与聚合机制，实现对低比特量化张量的高效通信支持。
 
   （2）集合通信调度优化：系统分析跨数据中心场景下的 All-Reduce 通信过程，针对 NCCL 的 CollNet 通信机制进行改进，提出多层流水线通信调度策略，充分利用集群间和集群内的异构带宽资源，显著加速通信过程。
 
@@ -22,7 +22,7 @@
 
   To address these challenges, this thesis targets communication optimization for cross-domain (Cloud–Edge–Device) distributed training. Cross-data-center training is treated as a representative, strongly-constrained instance of cloud-edge / edge-edge interconnects, capturing the key characteristics of low bandwidth and high RTT. The main contributions are as follows:
 
-  (1) *Communication Volume Optimization*: We propose a 1-bit quantization-based distributed optimizer that reduces communication volume to 1/16 or 1/32 of the original size, and design a compatible 1-bit All-Reduce algorithm to efficiently support 1-bit quantized tensors.
+  (1) *Communication Volume Optimization*: We propose a k-bit stochastic-rounding distributed optimization method with configurable bit widths ($b in {1, 2, 4, 8, 16}$). Under constrained links, it reduces communication volume by up to 32x (1/32 of the original size) while enabling a tunable trade-off between compression ratio and convergence stability; we further design a compatible quantized synchronization and aggregation mechanism to efficiently support low-bit quantized tensors.
 
   (2) *Collective Communication Scheduling Optimization*: We systematically analyze the All-Reduce communication process in cross-data-center scenarios, improve upon NCCL's CollNet communication mechanism, and propose a multi-level pipeline communication scheduling strategy that fully exploits heterogeneous bandwidth resources between and within clusters, significantly accelerating the communication process.
 
