@@ -9,21 +9,21 @@
 
 从云边端协同训练的视角，Cross-DC 可视为“边缘域↔云域（或边缘域↔边缘域）”跨域互联的一种典型抽象：边缘侧承载就近计算与数据处理，云侧提供集中化算力与全局一致性；当训练以跨域数据并行（DP）为骨架时，梯度均值 All-Reduce 必须跨越边缘到云的 WAN 链路，从而形成显著的同步尾部。端侧设备虽然未必直接参与大规模 All-Reduce，但它们持续将数据/梯度贡献汇入边缘域，使得边缘域成为跨域同步的“入口”，进一步放大 WAN 抖动对全局吞吐的影响。
 
+#figure(
+  image("../../supplementary/images/pp_across_dcs.png", width: 75%),
+  caption: [跨数据中心流水线并行：数据必须汇入单入口 DC，产生入口瓶颈]
+) <fig:cross-dc-pp>
+
 从系统角度看，Cross-DC 训练的难点不只在于“带宽更低”，还在于“时延更高且更难被隐藏”。当 RTT 达到毫秒量级时，许多传统在单数据中心可忽略的等待（例如一次 collective 的启动、同步点的排队）都会叠加成显著的迭代尾部。与此同时，跨 DC 的网络抖动还会放大 *同步屏障* 对全局吞吐的影响：任何一个 DC 的短暂变慢，都可能让所有 GPU 在屏障处空等。
 
 === 并行骨架的选择：跨 DC DP 优于跨 DC PP
 
 在 Cross-DC 环境中，以流水线并行为骨架（跨 DC PP）会迫使训练样本/激活在数据中心之间频繁穿梭，入口与跨段链路容易成为瓶颈，如图@fig:cross-dc-pp 所示。
 
-#figure(
-  image("../../supplementary/images/pp_across_dcs.png", width: 96%),
-  caption: [跨数据中心流水线并行：数据必须汇入单入口 DC，产生入口瓶颈]
-) <fig:cross-dc-pp>
-
 相对地，以数据并行为骨架（跨 DC DP）将前/后向计算限定在数据中心内，仅在迭代末进行梯度同步，天然契合数据就地处理，并对网络波动更鲁棒，如图@fig:cross-dc-dp 所示。
 
 #figure(
-  image("../../supplementary/images/dp_across_dcs.png", width: 96%),
+  image("../../supplementary/images/dp_across_dcs.png", width: 75%),
   caption: [跨数据中心数据并行 + 数据中心内流水线并行：各 DC 处理本地数据，仅跨 WAN 同步梯度]
 ) <fig:cross-dc-dp>
 
@@ -49,7 +49,7 @@ $ V_"PP" approx Theta(B dot A) $
 在 WAN 延迟主导时，即使框架在反向传播期间做了“分桶 All-Reduce”重叠，也容易出现迭代末尾无法被剩余计算掩盖的阻塞尾部。图@fig:dppp-timebreakdown 展示了 DP+PP 配置下跨 DC 与 DC 内开销分解：跨 DC 同步在每步中占据显著比例，导致 GPU 等待。
 
 #figure(
-  image("../../supplementary/images/bar_time_by_network.png", width: 96%),
+  image("../../supplementary/images/bar_time_by_network.png", width: 75%),
   caption: [DP+PP 配置下每步计算/通信开销分解：跨 DC 同步成为主要等待来源]
 ) <fig:dppp-timebreakdown>
 
@@ -60,10 +60,6 @@ $ V_"PP" approx Theta(B dot A) $
 == 问题分析与研究思路
 
 考虑一个 DP+PP 混合训练过程：每个全局迭代（step）以一个 mini-batch 为单位，将其划分为 $M$ 个 micro-batch 并采用 1F1B 调度执行。跨 DC 使用 DP（DP 组大小为 $N$），同一 DC 内使用 PP（用于模型切分与计算流水线）。
-
-在该设定下，DC 内 PP 负责把计算“铺开”以提升显存可承载的模型规模，并通过 1F1B 将多个 micro-batch 的前向/反向交错执行来提高单 DC 内的流水线利用率；跨 DC DP 则要求每步获得一致的更新方向，需要对 DP 组内的梯度做均值 All-Reduce。该 All-Reduce 因 WAN 特性成为尾部瓶颈。
-
-在一个迭代 $t$ 内、DP 组内的 worker（rank）$r$ 上，micro-batch $m$ 的局部梯度记为 $g_(r,t,m)$。我们关心如何选择一个 micro-batch 截断点 $tau$，在 $m=tau$ 时启动一次非阻塞 All-Reduce，并利用误差反馈在后续迭代补齐未同步的梯度信息。
 
 #figure(
   table(
@@ -92,6 +88,10 @@ $ V_"PP" approx Theta(B dot A) $
   ),
   caption: [POLAR-SGD 记号表]
 ) <tab:polar-notation>
+
+在该设定下，DC 内 PP 负责把模型切分成多层以提升显存可承载的模型规模，并通过 1F1B 将多个 micro-batch 的前向/反向交错执行来提高单 DC 内的流水线利用率；跨 DC DP 则要求每步获得一致的更新方向，需要对 DP 组内的梯度做均值 All-Reduce。该 All-Reduce 因 WAN 特性成为尾部瓶颈。
+
+在一个迭代 $t$ 内、DP 组内的 worker（rank）$r$ 上，micro-batch $m$ 的局部梯度记为 $g_(r,t,m)$。我们关心如何选择一个 micro-batch 截断点 $tau$，在 $m=tau$ 时启动一次非阻塞 All-Reduce，并利用误差反馈在后续迭代补齐未同步的梯度信息。
 
 == 详细方案设计与实现
 
@@ -279,41 +279,41 @@ $ (1/T) sum_(t=0)^(T-1) bb(E)[||nabla f(w_t)||^2] <= (2 (f(w_0)-f^*))/(eta T) + 
     table.header([*方法*], [*吞吐 (tokens/s)*], [*相对加速比*]),
     table.hline(stroke: 0.5pt),
     [DDP+1F1B], [5,350], [1.00×],
-    [LSGD ($k=4$)], [9,433], [1.76×],
+    [DiLoco ($k=4$)], [9,433], [1.76×],
     [POLAR-SGD], [10,016], [1.87×],
     table.hline(),
   ),
   caption: [Cross-DC 约束下端到端吞吐]
 ) <tab:polar-throughput>
 
-从吞吐对比可以看出：在 Cross-DC 约束下，基线 DDP+1F1B 的尾部同步显著拉长了单步时间；LSGD 通过减少同步强度/频率获得了较大吞吐提升，但其优化语义偏离基线更明显；POLAR-SGD 在保持“每步一次同步”的节奏下仍获得最高吞吐，约为基线的 1.87 倍，说明“把同步从尾部挪到可重叠窗口”比“单纯减少同步”更契合 DP+PP 的系统结构。
+从吞吐对比可以看出：在 Cross-DC 约束下，基线 DDP+1F1B 的尾部同步显著拉长了单步时间；DiLoco 通过减少同步强度/频率获得了较大吞吐提升，但其优化语义偏离基线更明显；POLAR-SGD 在保持“每步一次同步”的节奏下仍获得最高吞吐，约为基线的 1.87 倍，说明“把同步从尾部挪到可重叠窗口”比“单纯减少同步”更契合 DP+PP 的系统结构。
 
-该结果的关键意义在于区分了两条不同优化路径：LSGD 主要通过降低同步强度来换取系统速度，而 POLAR-SGD 主要通过重排同步时机来提升重叠效率。前者本质上改变了同步语义，后者在“每步一次同步”框架内优化关键路径。因此，当目标是兼顾吞吐与语义一致性时，POLAR-SGD 的方法路线更符合跨域 DP+PP 的实际需求。
+该结果的关键意义在于区分了两条不同优化路径：DiLoco 主要通过降低同步强度来换取系统速度，而 POLAR-SGD 主要通过重排同步时机来提升重叠效率。前者本质上改变了同步语义，后者在“每步一次同步”框架内优化关键路径。因此，当目标是兼顾吞吐与语义一致性时，POLAR-SGD 的方法路线更符合跨域 DP+PP 的实际需求。
 
 从关键路径角度看，吞吐提升并非仅由通信总量变化驱动，而是由“尾部阻塞长度”缩短驱动。即使总通信字节不变，只要将 All-Reduce 前移到可重叠窗口，迭代末端的纯等待区间就会明显缩短。表格中的相对加速比正体现了这一点：优化对象是迭代尾部而非全程任意位置的通信片段，因此收益具有明确因果指向。
 
-此外，POLAR-SGD 与 LSGD 的对比还支持本文关于“系统优化与优化语义协同”的结论。LSGD 在系统侧收益较高，但其训练语义偏离基线更明显；POLAR-SGD 在保持步级同步节奏的前提下达到更高吞吐，说明通过异步触发与误差修正可以在语义约束内实现系统增益。这一结果为后续系统集成章节提供了直接证据。
+此外，POLAR-SGD 与 DiLoco 的对比还支持本文关于“系统优化与优化语义协同”的结论。DiLoco 在系统侧收益较高，但其训练语义偏离基线更明显；POLAR-SGD 在保持步级同步节奏的前提下达到更高吞吐，说明通过异步触发与误差修正可以在语义约束内实现系统增益。这一结果为后续系统集成章节提供了直接证据。
 
 === 收敛曲线与消融
 
 本文进一步给出了按 step 对齐的 loss 曲线（验证 step-wise 稳定性）、按 wall-clock time 对齐的 loss 曲线（验证 time-to-target 提升），以及对“梯度缩放 / 误差反馈”两项关键机制的消融结果。
 
 #figure(
-  image("../../supplementary/images/json_curves_by_steps.png", width: 92%),
+  image("../../supplementary/images/json_curves_by_steps.png", width: 75%),
   caption: [训练 loss 随 step 变化：POLAR-SGD 与基线高度一致，优于 LSGD 的偏移]
 ) <fig:polar-loss-steps>
 
 按 step 对齐的结果用于回答“算法是否改变了每一步的优化行为”：如果曲线与基线接近，说明误差反馈确实在统计意义上补偿了前缀触发带来的偏差，使得训练轨迹没有明显漂移。
 
 #figure(
-  image("../../supplementary/images/json_curves_by_time.png", width: 92%),
+  image("../../supplementary/images/json_curves_by_time.png", width: 75%),
   caption: [训练 loss 随 wall-clock time 变化：POLAR-SGD 更快进入低 loss 区间]
 ) <fig:polar-loss-time>
 
 按 wall-clock time 对齐则更直接反映系统收益：即便 step-wise 曲线接近，只要单步时间被缩短，模型就能更快达到同等 loss 区间，从而提升 time-to-target。
 
 #figure(
-  image("../../supplementary/images/json_curves_by_steps_ablation.png", width: 92%),
+  image("../../supplementary/images/json_curves_by_steps_ablation.png", width: 75%),
   caption: [消融实验：去除梯度缩放或误差反馈会带来轻微收敛退化或稳定性风险]
 ) <fig:polar-ablation>
 

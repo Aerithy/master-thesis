@@ -151,6 +151,23 @@ def draw_ch3_multimodel_e2e() -> None:
     _save(fig, "ch3-multi-model-e2e.svg")
 
 
+def draw_ch3_validation_loss_curve() -> None:
+    df = pd.read_csv(CSV_DIR / "ch3_validation_loss_curve.csv")
+
+    fig, ax = plt.subplots(figsize=(9.2, 4.2))
+
+    ax.plot(df["step"], df["fp32_val_loss"], marker="o", linewidth=2.2, color="#8C8C8C", label="FP32")
+    ax.plot(df["step"], df["k4_val_loss"], marker="s", linewidth=2.2, color="#61DDAA", label="4-bit")
+
+    ax.set_xlabel("Training Step")
+    ax.set_ylabel("Validation Loss")
+    ax.set_title("Validation Loss Curves Under Representative Cross-domain Link")
+    ax.grid(True, linestyle="--", alpha=0.3)
+    ax.legend(frameon=False, fontsize=10)
+
+    _save(fig, "ch3-validation-loss-curve.svg")
+
+
 def draw_ch4_comm_asymmetry() -> None:
     df = pd.read_csv(CSV_DIR / "ch4_comm_asymmetry.csv")
 
@@ -322,6 +339,7 @@ def main() -> None:
     draw_ch3_experiment_results()
     draw_ch3_method_comparison()
     draw_ch3_multimodel_e2e()
+    draw_ch3_validation_loss_curve()
     draw_ch4_comm_asymmetry()
     draw_ch4_e2e_results()
     draw_ch4_chunk_sensitivity()

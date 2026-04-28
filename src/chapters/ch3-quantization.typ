@@ -39,7 +39,7 @@ $ "Communication Volume" = N times "sizeof"("float32") = N times 4 "bytes" $
 k-bit 量化方法借鉴了 Adam 优化器的动量机制，通过维护梯度的一阶矩估计 $m$ 和二阶矩估计 $v$，将连续梯度映射到 $2^b$ 个离散量化级别。该方法并非简单的线性截断，而是先利用指数移动平均保留历史梯度统计，再通过 $m$ 与 $v$ 的比值进行自适应归一化，使不同层、不同阶段的梯度都能被映射到统一数值区间；在此基础上，采用相邻量化级间的随机舍入来维持无偏性，并将本轮量化残差注入后续迭代，形成可持续的误差补偿通道。由此，算法在“压缩强度”与“优化稳定性”之间建立了更稳健的平衡关系。
 
 #figure(
-  image("../../image/ch3-kbit-quantization-workflow.png", width: 96%),
+  image("../../image/ch3-kbit-quantization-workflow.svg", width: 96%),
   caption: [k-bit随机舍入量化核心工作流程]
 ) <fig:kbit-adam-workflow>
 
@@ -106,7 +106,7 @@ $
 $ bold(w) = [2^7, 2^6, 2^5, 2^4, 2^3, 2^2, 2^1, 2^0] = [128, 64, 32, 16, 8, 4, 2, 1] $
 
 #figure(
-  image("../../image/ch3-bit-packing.png", width: 98%),
+  image("../../image/ch3-bit-packing.svg", width: 98%),
   caption: [位打包与解包过程示意图]
 ) <fig:bit-packing>
 
@@ -191,7 +191,7 @@ QuantizedAdamReduce 函数采用分支通信策略：当 $b < 16$ 时使用 A2A 
 该设计在工程层面兼顾了透明性与可扩展性。对上层训练代码而言，量化路径几乎是低侵入接入，通常只需要通过配置开关即可启用或关闭；在模块演进层面，量化器作为相对独立的组件存在，便于后续替换其他压缩策略并开展横向对比实验，因此能够较好地支撑后续算法迭代。
 
 #figure(
-  image("../../image/ch3-kbit-system-architecture.png", width: 98%),
+  image("../../image/ch3-kbit-system-architecture.svg", width: 98%),
   caption: [k-bit随机舍入量化在分布式框架中的集成架构]
 ) <fig:system-arch>
 
@@ -334,6 +334,8 @@ QuantizedAdamReduce 函数采用分支通信策略：当 $b < 16$ 时使用 A2A 
 
 该设置有助于降低“仅在单模型或单一网络条件下成立”的结论偏差，并为后续章节的系统级优化提供统一基线。
 
+@fig:multi-model-e2e 实验取通信链路带宽为3Gbps进行实验：
+
 #figure(
   image("../../image/ch3-multi-model-e2e.svg", width: 98%),
   caption: [k-bit 在多模型端到端训练中的收益]
@@ -349,12 +351,21 @@ QuantizedAdamReduce 函数采用分支通信策略：当 $b < 16$ 时使用 A2A 
 
 需要指出的是，不同任务之间的最优位宽可能并不完全一致。本章给出的统一配置验证了“可行且有效”，但若追求最优收益，仍可在保持统一框架的前提下按任务进行位宽微调。该观察不削弱本文结论，反而进一步说明本文方法的优势在于提供了可调、可扩展的统一通信优化底座。
 
-综合来看，本组实验从端到端层面支撑了本文方法的通用性结论：k-bit 并非仅在单一模型上成立，而是在多任务、多负载条件下均可稳定降低 time-to-target，并保持可接受的优化行为偏差。
+#figure(
+  image("../../image/ch3-validation-loss-curve.svg", width: 98%),
+  caption: [FP32 与 4-bit 在代表性网络条件下的 validation loss 收敛曲线]
+) <fig:val-loss-curve>
+
+综上，本组实验从端到端层面支撑了本文方法的通用性结论：k-bit 并非仅在单一模型上成立，而是在多任务、多负载条件下均可稳定降低 time-to-target，并保持可接受的优化行为偏差。
+
+如@fig:val-loss-curve 所示，在等效跨域带宽约 $3$ Gb/s 的条件下，4-bit 曲线与 FP32 在主要训练阶段保持接近，且末段验证损失差值维持在约 $0.02$ 量级，说明本文方法在获得吞吐收益的同时未引入显著收敛退化。
 
 #figure(
   image("../../image/ch3-experiment-results.svg", width: 98%),
-  caption: [k-bit 量化方法的收敛性与训练加速比验证]
+  caption: [k-bit 量化方法的收敛性与训练加速比验证（以 LLaMA-7B 为例）]
 ) <fig:experiments-result>
+
+#h(0em) @fig:experiments-result 采用 LLaMA-7B 作为代表模型，展示不同带宽条件下各量化位宽的吞吐与最终验证损失变化。
 
 == 本章小结
 

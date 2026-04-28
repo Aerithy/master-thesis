@@ -1,5 +1,4 @@
-test_dimension,conclusion,evidence_source,source_chapter,source_tag
-集合通信调度收益,流水线层次化相对 PyTorch 原生实现 1.35x 端到端加速,第 4 章 @tab:e2e-speedup,4,tab:e2e-speedup
-跨域受限场景吞吐,POLAR-SGD 在 Cross-DC 约束下达到 1.87x 相对加速,第 5 章 @tab:polar-throughput,5,tab:polar-throughput
-收敛稳定性,step 对齐曲线与基线高度一致，未出现明显漂移,第 5 章 @fig:polar-loss-steps,5,fig:polar-loss-steps
-time-to-target,wall-clock 对齐曲线更快进入低 loss 区间,第 5 章 @fig:polar-loss-time,5,fig:polar-loss-time
+network_group,link_condition,baseline_throughput,system_throughput,speedup,baseline_ttt_min,system_ttt_min,val_loss_gap
+N2（弱受限）,10-30 Gb/s; 5-30 ms,1250,1475,1.18x,302,271,0.01
+N3（中度受限）,1-10 Gb/s; 30-100 ms,860,1256,1.46x,386,307,0.02
+N4（强受限）,10-200 Mb/s; 5-30 ms,530,991,1.87x,512,359,0.02

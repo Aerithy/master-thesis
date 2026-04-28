@@ -1,0 +1,4 @@
+scenario,bandwidth_rtt,baseline_throughput,system_throughput,speedup,rollback_ratio,final_loss_gap
+Moderate-constrained,1-10 Gb/s; 30-100 ms,860,1256,1.46,0.03,0.02
+HighBW-degradation,100-200 Gb/s; <1 ms,1940,1968,1.01,0.92,0.00
+LowRTT-degradation,10-30 Gb/s; <1 ms,1665,1715,1.03,0.84,0.01

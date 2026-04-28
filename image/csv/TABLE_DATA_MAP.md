@@ -21,6 +21,10 @@ Related figure data CSV files:
 - fig:experiments-result -> image/csv/ch3_experiment_results.csv
 - fig:method-comp -> image/csv/ch3_method_comparison.csv
 - fig:multi-model-e2e -> image/csv/ch3_multimodel_e2e.csv
+- fig:val-loss-curve -> image/csv/ch3_validation_loss_curve.csv
 - fig:comm-asymmetry -> image/csv/ch4_comm_asymmetry.csv
 - fig:e2e-result -> image/csv/ch4_e2e_results.csv
 - fig:chunk-sensitivity -> image/csv/ch4_chunk_sensitivity.csv
+- fig:ch6-system-perf -> image/csv/ch6_system_perf_compare.csv
+- fig:ch6-system-loss-curves -> image/csv/ch6_system_loss_curves_step.csv + image/csv/ch6_system_loss_curves_time.csv
+- fig:ch6-system-degradation -> image/csv/ch6_system_degradation_test.csv
