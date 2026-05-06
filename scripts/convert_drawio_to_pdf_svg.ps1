@@ -1,8 +1,7 @@
 [CmdletBinding()]
 param(
 	[string]$Root = ".",
-	[string]$DrawIoExe = "C:\Program Files\draw.io\draw.io.exe",
-	[string]$MuToolExe = "C:\Program Files\mupdf-1.27.0-windows\mutool.exe"
+	[string]$DrawIoExe = "C:\Program Files\draw.io\draw.io.exe"
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,11 +29,6 @@ if (-not $drawIoPath) {
 	throw "Cannot find draw.io executable. Set -DrawIoExe explicitly."
 }
 
-$muToolPath = Resolve-ExePath -Preferred $MuToolExe -CommandName "mutool"
-if (-not $muToolPath) {
-	throw "Cannot find mutool executable. Set -MuToolExe explicitly."
-}
-
 $rootPath = (Resolve-Path $Root).Path
 $drawioFiles = Get-ChildItem -Path $rootPath -Recurse -File -Filter "*.drawio"
 
@@ -44,7 +38,6 @@ if (-not $drawioFiles) {
 }
 
 Write-Output "draw.io: $drawIoPath"
-Write-Output "mutool : $muToolPath"
 Write-Output "root   : $rootPath"
 Write-Output "files  : $($drawioFiles.Count)"
 
@@ -53,17 +46,11 @@ $failed = 0
 
 foreach ($f in $drawioFiles) {
 	$pdfPath = [System.IO.Path]::ChangeExtension($f.FullName, ".pdf")
-	$svgPath = [System.IO.Path]::ChangeExtension($f.FullName, ".svg")
 
 	try {
 		& $drawIoPath --export --format pdf --output $pdfPath $f.FullName | Out-Null
 		if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pdfPath)) {
 			throw "draw.io export failed"
-		}
-
-		& $muToolPath draw -o $svgPath $pdfPath | Out-Null
-		if ($LASTEXITCODE -ne 0 -or -not (Test-Path $svgPath)) {
-			throw "mutool PDF->SVG failed"
 		}
 
 		$ok += 1

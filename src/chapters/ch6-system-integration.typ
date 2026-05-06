@@ -10,7 +10,7 @@
 
 从云边端协同训练的部署现实出发，系统设计遵循以下目标与约束：
 
-一方面必须保持“每迭代一次全局同步”的语义节奏，避免以彻底异步换取短期吞吐；另一方面，性能收益需要体现在多轮训练的端到端时间而非局部算子峰值。与此同时，系统尽量复用 PyTorch 与 NCCL 既有执行栈，将改动集中在训练循环和通信调度层，以控制工程侵入性；当网络状态或模型规模变化使收益收敛时，策略层还应具备可解释、可验证的保守回退路径。
+一方面必须保持“每迭代一次全局同步”的语义节奏，避免以彻底异步换取短期吞吐；另一方面，性能收益需要体现在多轮训练的端到端时间而非局部算子峰值。与此同时，系统尽量复用 PyTorch 与 NCCL 既有执行栈，将改动集中在训练循环和通信调度层，以控制工程侵入性 @pytorch_distributed2020 @nccl2；当网络状态或模型规模变化使收益收敛时，策略层还应具备可解释、可验证的保守回退路径。
 
 上述约束决定了系统不是“静态启用全部优化”，而是“模块 2 常驻 + 模块 3主导触发 + 模块 1按需介入”的分层启用模式。该模式一方面保留了跨域调度优化的基础收益，另一方面避免在通信不再主导时引入不必要的量化误差与额外管理开销。
 
@@ -112,8 +112,9 @@
 #figure(
   kind: "algorithm",
   placement: top,
+  supplement: [算法],
 
-  pseudocode-list(booktabs: true, numbered-title: [算法 1：三模块协同系统控制器主循环], full: true)[
+  pseudocode-list(booktabs: true, numbered-title: [三模块协同系统控制器主循环], full: true)[
     - *输入状态：* $theta_t$，$e_(r,t)$，网络与计算 profiling 缓冲
     - *输出：* 更新后的参数 $w_(t+1)$ 与状态 $theta_(t+1)$
 
@@ -189,7 +190,7 @@
   caption: [不同网络环境下本系统与现有训练系统的最终对比结果]
 ) <tab:final-system-validation>
 
-表@tab:final-system-validation 给出了系统级“同条件对比”结果：在 弱受限、中度受限、强受限 三类网络环境中，统一启用第 3-5 章全部优化方法（模块 1+2+3）的本系统，均优于现有训练系统。
+@tab:final-system-validation 给出了系统级“同条件对比”结果：在 弱受限、中度受限、强受限 三类网络环境中，统一启用第 3-5 章全部优化方法（模块 1+2+3）的本系统，均优于现有训练系统。
 
 // Data source: image/csv/ch6_system_perf_compare.csv
 #figure(
@@ -235,7 +236,7 @@
 
 为便于后续复现与部署，交付材料如下：
 
-固定版本的软件栈（PyTorch、CUDA、NCCL）及关键环境变量、统一的 profiling 日志格式（含 $T_"comm"$、$T_"comp"$、$tau$ 与策略状态）、以及与 @tab:final-system-validation 对齐的最小测试脚本和验收阈值。
+固定版本的软件栈（PyTorch、CUDA、NCCL）及关键环境变量、统一的 profiling 日志格式（含 $T_"comm"$、$T_"comp"$、$tau$ 与策略状态）、以及与 @tab:final-system-validation 对齐的最小测试脚本和验收阈值 @pytorch_distributed2020 @nccl2。
 
 == 本章小结
 

@@ -6,7 +6,7 @@
 
 === 异构集群通信特征
 
-在分布式深度学习训练中，梯度同步的通信开销已成为制约训练效率的关键瓶颈。特别是在多节点集群环境中，通信架构表现出显著的异构性（Heterogeneity）：节点内（Intra-node）通信通过高速 NVLink 或 PCIe 完成，带宽可达数百 GB/s；而节点间（Inter-node）通信受限于以太网或 InfiniBand 带宽，通常仅为 10-100 Gbps。这种巨大的带宽不对称性（Bandwidth Asymmetry）——通常达到 10:1 甚至 50:1——使得跨节点通信成为系统的主要性能短板。
+在分布式深度学习训练中，梯度同步的通信开销已成为制约训练效率的关键瓶颈 @pytorch_distributed2020。特别是在多节点集群环境中，通信架构表现出显著的异构性（Heterogeneity）：节点内（Intra-node）通信通过高速 NVLink 或 PCIe 完成，带宽可达数百 GB/s；而节点间（Inter-node）通信受限于以太网或 InfiniBand 带宽，通常仅为 10-100 Gbps @nvidia_nvlink_v3_2021 @mellanox_hdr200。这种巨大的带宽不对称性（Bandwidth Asymmetry）——通常达到 10:1 甚至 50:1——使得跨节点通信成为系统的主要性能短板。
 
 在云边端协同训练中，这种异构性会进一步“跨域化”：云内与边缘域内往往具备较高带宽互联（如 RDMA/以太网集群），但边缘到云、边缘到边缘的跨域链路带宽更低且 RTT 更高；端到边链路还可能受到无线接入与动态拥塞影响，抖动显著。因而，梯度同步往往需要跨越至少一条“低带宽/高 RTT”的跨域链路，导致同步尾部更突出，也使得“如何在分层拓扑上合理调度 collective”成为云边端协同训练的关键系统问题。
 
@@ -17,7 +17,7 @@
 
 === 传统同步算法的局限
 
-传统的 All-Reduce 操作（如 Ring All-Reduce 或 Tree All-Reduce）通常采用同步阻塞方式，所有进程必须在此阶段等待通信完成才能继续进行下一轮迭代的计算。在异构网络环境下，这种扁平化的通信模式会导致高速的节点内互联被低速的节点间链路拖累，造成严重的计算资源闲置。
+传统的 All-Reduce 操作（如 Ring All-Reduce 或 Tree All-Reduce）通常采用同步阻塞方式，所有进程必须在此阶段等待通信完成才能继续进行下一轮迭代的计算 @rabenseifner2004。在异构网络环境下，这种扁平化的通信模式会导致高速的节点内互联被低速的节点间链路拖累，造成严重的计算资源闲置。
 
 为解决上述问题，本研究提出了一种*基于流水线的层次化 All-Reduce 方法*（Pipelining Hierarchy All-Reduce），通过张量分块、双流并行和层次化通信策略，实现计算与通信的高度重叠，显著降低梯度同步延迟。
 
@@ -76,6 +76,8 @@ $ "chunk_size" = "tensor_size" / (8 tilde 16) $
 #figure(
   kind: "algorithm",
   placement: top,
+  supplement: [算法],
+
   pseudocode-list(booktabs: true, numbered-title: [预热阶段流水线启动], full: true)[
     - *输入：* $"chunks"$，$"local_group"$，$"inter_group"$，事件列表
     - *输出：* 初始化流水线依赖图
@@ -100,7 +102,9 @@ $ "chunk_size" = "tensor_size" / (8 tilde 16) $
 #figure(
   kind: "algorithm",
   placement: top,
-  pseudocode-list(booktabs: true, numbered-title: [算法 4：流水线主循环], full: true)[
+  supplement: [算法],
+
+  pseudocode-list(booktabs: true, numbered-title: [流水线主循环], full: true)[
     - *输入：* 块索引 $i in [2, N-1]$，事件列表，$"local_group"$，$"inter_group"$
     - *输出：* 完成所有中间块的重叠调度
 
@@ -130,6 +134,7 @@ $ "chunk_size" = "tensor_size" / (8 tilde 16) $
 #figure(
   kind: "algorithm",
   placement: top,
+  supplement: [算法],
   pseudocode-list(booktabs: true, numbered-title: [冷却阶段收尾流程], full: true)[
     - *输入：* 事件列表与最后两个块索引
     - *输出：* 完成全部块的传播闭环
@@ -176,7 +181,9 @@ $ "Speedup" = (T_"local" + T_"inter" + T_"broadcast") / (max(T_"local", T_"inter
 #figure(
   kind: "algorithm",
   placement: top,
-  pseudocode-list(booktabs: true, numbered-title: [算法 5：流水线层次化 All-Reduce 集成], full: true)[
+  supplement: [算法],
+  
+  pseudocode-list(booktabs: true, numbered-title: [流水线层次化 All-Reduce 集成], full: true)[
     - *输入：* 梯度列表 $"grads"$，本地步数 $"local_steps"$
     - *输出：* 聚合后的梯度缓冲
 
@@ -200,11 +207,8 @@ $ "Speedup" = (T_"local" + T_"inter" + T_"broadcast") / (max(T_"local", T_"inter
 
 === 实验环境
 
-实验在以下环境中进行：
+实验在以下环境中进行：实验平台采用 2 个计算节点、每节点 4 张 NVIDIA A100 GPU；节点内互联为 NVLink（600 GB/s），节点间互联为 InfiniBand（200 Gbps）@nvidia_a100_2020 @nvidia_nvlink_v3_2021 @mellanox_hdr200。任务侧采用 ResNet-50 与 ImageNet 组合，并设置每 GPU batch 为 256 @he2016resnet @deng2009imagenet。对比对象包括 PyTorch 原生 All-Reduce 与无流水线的朴素层次化 All-Reduce，以隔离“层次化收益”和“流水线收益”两类贡献。
 
-#h(-2em) 实验平台采用 2 个计算节点、每节点 4 张 NVIDIA A100 GPU；节点内互联为 NVLink（600 GB/s），节点间互联为 InfiniBand（200 Gbps）。任务侧采用 ResNet-50 与 ImageNet 组合，并设置每 GPU batch 为 256。对比对象包括 PyTorch 原生 All-Reduce 与无流水线的朴素层次化 All-Reduce，以隔离“层次化收益”和“流水线收益”两类贡献。
-
-#h(-2em) *云边端协同相关设置（跨域链路仿真）*：
 为体现本文方法在云-边跨域互联中的适用性，除上述“局域高带宽集群”设置外，实验还采用网络整形对 Inter Group 对应的域间链路注入带宽/RTT 约束，用于复现边缘到云的广域网特征；Local Group 仍保持域内高带宽互联，以刻画典型的“域内快、域间慢”。该设置重点用于验证层次化流水线在跨域瓶颈下的调度收益与敏感性趋势。
 
 // Data source: image/csv/ch4_tab_hierarchical_links.csv
@@ -305,9 +309,9 @@ GPU 利用率提升与通信耗时下降之间也形成因果闭环。同步通�
 
 该实验采用三变量控制：
 
-#h(-2em) 变量 1（网络条件）：节点内/节点间带宽比（5:1 ~ 30:1）；
-#h(-2em) 变量 2（通信张量大小）：固定为 1024 MB；
-#h(-2em) 变量 3（分块数）：1、2、4、8（对应不同 chunk 粒度）。
+变量 1（网络条件）：节点内/节点间带宽比（5:1 ~ 30:1）；
+变量 2（通信张量大小）：固定为 1024 MB；
+变量 3（分块数）：1、2、4、8（对应不同 chunk 粒度）。
 
 // Data source: image/csv/ch4_tab_bandwidth_ratio_3factor.csv
 #figure(

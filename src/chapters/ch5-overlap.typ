@@ -5,9 +5,9 @@
 
 == 引言
 
-跨数据中心（Cross-DC）训练常见于数据就地合规、跨地域数据融合与算力资源分散等场景。与单数据中心互联（如 InfiniBand/RDMA）相比，广域网（WAN）通常只有 10–30 Gb/s 量级带宽、30–100 ms 往返时延（RTT），使得同步训练中的通信开销直接进入关键路径，造成 GPU 长时间空闲与吞吐下降。
+跨数据中心（Cross-DC）训练常见于数据就地合规、跨地域数据融合与算力资源分散等场景。与单数据中心互联（如 InfiniBand/RDMA）相比，广域网（WAN）通常只有 10–30 Gb/s 量级带宽、30–100 ms 往返时延（RTT），使得同步训练中的通信开销直接进入关键路径，造成 GPU 长时间空闲与吞吐下降 @jain2013b4。
 
-从云边端协同训练的视角，Cross-DC 可视为“边缘域↔云域（或边缘域↔边缘域）”跨域互联的一种典型抽象：边缘侧承载就近计算与数据处理，云侧提供集中化算力与全局一致性；当训练以跨域数据并行（DP）为骨架时，梯度均值 All-Reduce 必须跨越边缘到云的 WAN 链路，从而形成显著的同步尾部。端侧设备虽然未必直接参与大规模 All-Reduce，但它们持续将数据/梯度贡献汇入边缘域，使得边缘域成为跨域同步的“入口”，进一步放大 WAN 抖动对全局吞吐的影响。
+从云边端协同训练的视角，跨数据中心可视为“边缘域↔云域（或边缘域↔边缘域）”跨域互联的一种典型抽象：边缘侧承载就近计算与数据处理，云侧提供集中化算力与全局一致性；当训练以跨域数据并行（DP）为并行策略骨架时，梯度的 All-Reduce 同步集合通信过程必须跨越边缘到云的 WAN 链路，从而在每一次训练迭代的反向传播后形成显著的同步尾部。端侧设备虽然未必直接参与大规模 All-Reduce，但它们持续将数据/梯度贡献汇入边缘域，使得边缘域成为跨域同步的“入口”，进一步放大 WAN 抖动对全局吞吐的影响。
 
 #figure(
   image("../../supplementary/images/pp_across_dcs.png", width: 75%),
@@ -16,18 +16,16 @@
 
 从系统角度看，Cross-DC 训练的难点不只在于“带宽更低”，还在于“时延更高且更难被隐藏”。当 RTT 达到毫秒量级时，许多传统在单数据中心可忽略的等待（例如一次 collective 的启动、同步点的排队）都会叠加成显著的迭代尾部。与此同时，跨 DC 的网络抖动还会放大 *同步屏障* 对全局吞吐的影响：任何一个 DC 的短暂变慢，都可能让所有 GPU 在屏障处空等。
 
-=== 并行骨架的选择：跨 DC DP 优于跨 DC PP
+=== 并行骨架的选择：跨 DC 数据并行优于跨 DC 流水线并行
 
-在 Cross-DC 环境中，以流水线并行为骨架（跨 DC PP）会迫使训练样本/激活在数据中心之间频繁穿梭，入口与跨段链路容易成为瓶颈，如图@fig:cross-dc-pp 所示。
+在 Cross-DC 环境中，以流水线并行为骨架（跨 DC PP）会迫使训练样本/激活在数据中心之间频繁穿梭，入口与跨段链路容易成为瓶颈，如@fig:cross-dc-pp 所示 @crosspipe2025。
 
-相对地，以数据并行为骨架（跨 DC DP）将前/后向计算限定在数据中心内，仅在迭代末进行梯度同步，天然契合数据就地处理，并对网络波动更鲁棒，如图@fig:cross-dc-dp 所示。
+相对地，以数据并行为骨架（跨 DC DP）将前/后向计算限定在数据中心内，仅在迭代末进行梯度同步，天然契合数据就地处理，并对网络波动更鲁棒，如@fig:cross-dc-dp 所示。
 
 #figure(
   image("../../supplementary/images/dp_across_dcs.png", width: 75%),
   caption: [跨数据中心数据并行 + 数据中心内流水线并行：各 DC 处理本地数据，仅跨 WAN 同步梯度]
 ) <fig:cross-dc-dp>
-
-因此，本章聚焦本文设定的层次化混合并行：跨 DC 采用 DP，同一数据中心内采用 PP（DP+PP）。该设定避免跨 DC 传输激活/样本，但引入新的关键瓶颈：跨 DC 梯度同步尾部（All-Reduce tail）。
 
 为进一步说明“跨 DC DP 优于跨 DC PP”的结构性原因，可以用通信量随 batch 规模的增长趋势来刻画。设共有 $D$ 个数据中心，每个 DC 处理本地 batch $b$，则全局 batch 为 $B = D dot b$。令 $alpha$ 表示每个参数参与同步的字节数（与精度/压缩有关），$P$ 表示模型参数规模（以参数个数或字节计），$A$ 表示当流水线切分跨越数据中心时每个样本需要跨 WAN 传输的激活（及其反向激活梯度）大小。
 
@@ -43,19 +41,19 @@ $ V_"PP" approx Theta(B dot A) $
 
 并且 PP 的跨 DC 传输更可能位于计算关键路径之上（stage 依赖强），一旦 WAN 出现波动，容易级联放大为全流水线停顿。因此，本文选择“跨 DC DP + DC 内 PP”的层次化骨架，以在数据就地的前提下，尽可能将 WAN 通信从强依赖链路中剥离。
 
+综上，本章聚焦本文设定的层次化混合并行：跨 DC 采用 DP，同一数据中心内采用 PP（DP+PP）。该设定避免了跨 DC 传输激活/样本的开销，但 DP 并行策略骨架引入了新的关键瓶颈：跨 DC 梯度同步尾部（All-Reduce tail）。
+
 === 同步尾部成为主要瓶颈
 
 
-在 WAN 延迟主导时，即使框架在反向传播期间做了“分桶 All-Reduce”重叠，也容易出现迭代末尾无法被剩余计算掩盖的阻塞尾部。图@fig:dppp-timebreakdown 展示了 DP+PP 配置下跨 DC 与 DC 内开销分解：跨 DC 同步在每步中占据显著比例，导致 GPU 等待。
+在 WAN 延迟主导时，即使框架在反向传播期间做了梯度分桶来使梯度同步 All-Reduce 与计算重叠，也容易在每次训练迭代末尾出现无法被剩余计算掩盖的通信同步阻塞尾部。原因在于，WAN 的 $T_"ar"$ 可能显著大于单个 bucket 之后剩余的可用计算窗口，导致最后几个 bucket 的同步不可避免地串行堆叠在迭代尾部，形成长尾。@fig:dppp-timebreakdown 展示了 DP+PP 配置下跨 DC 与 DC 内开销分解：跨 DC 同步在每步中占据显著比例，导致 GPU 等待。
 
 #figure(
   image("../../supplementary/images/bar_time_by_network.png", width: 75%),
   caption: [DP+PP 配置下每步计算/通信开销分解：跨 DC 同步成为主要等待来源]
 ) <fig:dppp-timebreakdown>
 
-面对同步尾部，一类直观做法是弱化同步（如 Local-SGD），但其本质是降低同步频率而非消除同步尾部，且会引入更强的优化漂移风险。本章提出 POLAR-SGD：在不改变“每迭代一次全局同步”这一基本语义的前提下，通过 *前缀触发的异步 All-Reduce + 预测误差修正* 将同步从关键路径中剥离。
-
-需要补充的是，单数据中心场景中常见的“bucket 级别通信重叠”（例如按参数桶在反向传播过程中分批启动 All-Reduce）在 WAN 环境下往往不足以完全隐藏同步开销。原因在于：WAN 的 $T_"ar"$ 可能显著大于单个 bucket 之后剩余的可用计算窗口，导致最后几个 bucket 的同步不可避免地串行堆叠在迭代尾部，形成长尾。POLAR-SGD 的思路并不是让 All-Reduce 发生得更“碎”，而是通过选择一个 *更早、更长* 的可重叠窗口（在 micro-batch 前缀处触发一次 collective），让整个 All-Reduce 更大概率被后续反向传播所掩盖。
+面对同步尾部，一类直观做法是弱化同步（如 Local-SGD），该类做法通过在各个数据中心内部维护一个局部模型，并通过约定好的同步频率来维护各个数据中心的模型参数一致，但这类方法的本质是降低同步频率而非消除同步尾部，且会引入更强的优化漂移风险 @stich2019local。本章提出 POLAR-SGD：在不改变“每迭代一次全局同步”这一基本语义的前提下，通过 *前缀触发的异步 All-Reduce + 预测误差修正* ，创造了一个*更早、更长*的可重叠窗口（在 micro-batch 前缀处触发一次 all-reduce 集合通信），让整个跨 WAN 的 All-Reduce 得以被后续反向传播的通信所掩盖，从而将同步从阻塞尾部中去除。
 
 == 问题分析与研究思路
 
@@ -117,8 +115,9 @@ POLAR-SGD 在每个 micro-batch 反向结束时累积梯度。当到达截断点
 #figure(
   kind: "algorithm",
   placement: top,
+  supplement: [算法],
 
-  pseudocode-list(booktabs: true, numbered-title: [算法 1：POLAR-SGD 的前缀触发异步 All-Reduce（每迭代一次）], full: true)[
+  pseudocode-list(booktabs: true, numbered-title: [POLAR-SGD 的前缀触发异步 All-Reduce（每迭代一次）], full: true)[
     - *全局状态：* 累积梯度 $g_a$；前缀快照 $g^(tau)$；通信句柄 $h_t$
     - *回调：* 在每个 micro-batch 反向结束时调用
 
@@ -188,8 +187,9 @@ $ g_"sync",t + bar e_(t+1) = bar g_t^(M) $
 #figure(
   kind: "algorithm",
   placement: top,
+  supplement: [算法],
 
-  pseudocode-list(booktabs: true, numbered-title: [算法 2：POLAR-SGD 的误差反馈（前缀缩放 + residual 更新）], full: true)[
+  pseudocode-list(booktabs: true, numbered-title: [POLAR-SGD 的误差反馈（前缀缩放 + residual 更新）], full: true)[
     - *全局状态：* 误差缓冲 $e_(r,t)$；预测梯度 $g_"pred",(r,t)$；$tau$ 与 $M$
 
     + *procedure* $"BuildSendBufferAtCutoff"(t, g_(r,t)^(tau))$

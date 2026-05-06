@@ -18,9 +18,9 @@
 #let abstract-en-text = [
   #show: abstract-en.with(keyword: ("Distributed Training", "Cloud-Edge-Device Collaboration", "Cross-Domain Communication", "Communication Optimization", "Large Language Models"))
 
-  Distributed training has become the fundamental infrastructure for large language model training. As training data and compute resources evolve from a single data center to cloud-edge-device collaboration—where data resides across central clouds, edge micro-data centers, and end devices, and compute spans cloud GPU clusters and heterogeneous edge nodes—training systems face stronger cross-domain heterogeneity: intra-domain links (e.g., NVLink/PCIe, RDMA) are high-bandwidth and low-latency, while cross-domain links (edge-to-cloud, edge-to-edge, and device-to-edge access networks) are typically bandwidth-limited with higher RTT and larger jitter. As a result, gradient synchronization is more likely to fall onto the critical path and become a key bottleneck for end-to-end throughput and latency.
+  Distributed training has become the fundamental infrastructure for large language model training. As training data and compute resources move from a single data center to cloud-edge-device collaboration, data are distributed across cloud data lakes, edge micro-data centers, and end devices, while compute is spread across central cloud GPU clusters, edge GPU/CPU nodes, and some end-device accelerators. Training systems therefore face stronger heterogeneity: intra-domain links, such as same-machine NVLink/PCIe and intra-domain RDMA, offer high bandwidth and low latency, whereas cross-domain links, such as edge-to-cloud, edge-to-edge, and device-to-edge cellular/broadband access, usually provide lower bandwidth, higher RTT, and larger jitter. As a result, the communication overhead of gradient synchronization is more likely to enter the iterative critical path and become a key bottleneck for cloud-edge-device collaborative training throughput and latency.
 
-  To address these challenges, this thesis targets communication optimization for cross-domain (Cloud–Edge–Device) distributed training. Cross-data-center training is treated as a representative, strongly-constrained instance of cloud-edge / edge-edge interconnects, capturing the key characteristics of low bandwidth and high RTT. The main contributions are as follows:
+  To address these challenges, this thesis targets communication optimization for cross-domain (Cloud–Edge–Device) distributed training, and conducts systematic research from three aspects: communication volume, collective communication scheduling, and computation-communication overlap. The main contributions are as follows:
 
   (1) *Communication Volume Optimization*: We propose a k-bit stochastic-rounding distributed optimization method with configurable bit widths ($b in {1, 2, 4, 8, 16}$). Under constrained links, it reduces communication volume by up to 32x (1/32 of the original size) while enabling a tunable trade-off between compression ratio and convergence stability; we further design a compatible quantized synchronization and aggregation mechanism to efficiently support low-bit quantized tensors.
 
@@ -30,7 +30,7 @@
 ]
 
 #show: thesis.with(
-  title: (zh: "面向云边端协同的跨域分布式训练通信优化研究", en: "Research on Communication Optimization for Distributed Training in Cross-Domain Multi-Data Center Scenarios"),
+  title: (zh: "面向云边端协同的跨域分布式训练通信优化研究", en: "Research on Communication Optimization for Cross-Domain Distributed Training Toward Cloud-Edge-Device Collaboration"),
   author: (zh: "李云潼", en: "Yuntong Li"),
   teacher: (zh: "肖利民", en: "Limin Xiao"),
   teacher-degree: (zh: "教授", en: "Prof."),
