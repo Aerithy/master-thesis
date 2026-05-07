@@ -1081,6 +1081,33 @@
   bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
+@inproceedings{dgc2018,
+  author       = {Yujun Lin and
+                  Song Han and
+                  Huizi Mao and
+                  Yu Wang and
+                  William J. Dally},
+  title        = {Deep Gradient Compression: Reducing the Communication Bandwidth for Distributed Training},
+  booktitle    = {6th International Conference on Learning Representations, {ICLR} 2018, Vancouver, BC, Canada, April 30 - May 3, 2018},
+  publisher    = {OpenReview.net},
+  year         = {2018},
+  url          = {https://openreview.net/forum?id=SkhQHMW0W},
+  timestamp    = {Tue, 11 Jun 2024 16:45:43 +0200},
+}
+
+@inproceedings{powersgd2019,
+  author       = {Thijs Vogels and
+                  Sai Praneeth Karimireddy and
+                  Martin Jaggi},
+  title        = {PowerSGD: Practical Low-Rank Gradient Compression for Distributed Optimization},
+  booktitle    = {Advances in Neural Information Processing Systems 32: Annual Conference
+                  on Neural Information Processing Systems 2019, NeurIPS 2019, December
+                  8-14, 2019, Vancouver, BC, Canada},
+  year         = {2019},
+  url          = {https://proceedings.neurips.cc/paper/2019/hash/d9f779c8f6b4c5f1e0d6c51c13f4f4b1-Abstract.html},
+  timestamp    = {Thu, 07 May 2026 16:10:00 +0200},
+}
+
 @inproceedings{he2016resnet,
   author       = {Kaiming He and
                   Xiangyu Zhang and
@@ -1129,4 +1156,94 @@
   title        = {NVIDIA {NCCL}},
   year         = {2024},
   url          = {https://developer.nvidia.com/nccl}
+}
+
+@misc{horovod2018,
+  title         = {Horovod: fast and easy distributed deep learning in TensorFlow},
+  author        = {Sergeev, Alexander and Del Balso, Mike},
+  year          = {2018},
+  eprint        = {1802.05799},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.LG},
+  url           = {https://arxiv.org/abs/1802.05799}
+}
+
+@misc{blink2019,
+  title         = {Blink: Fast and Generic Collectives for Distributed ML},
+  author        = {Wang, Guanhua and Venkataraman, Shivaram and Phanishayee, Amar and Thelin, Jorgen and Devanur, Nikhil and Stoica, Ion},
+  year          = {2019},
+  eprint        = {1910.04940},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.DC},
+  url           = {https://arxiv.org/abs/1910.04940}
+}
+
+@misc{optireduce2023,
+  title         = {OptiReduce: Resilient and Tail-Optimal AllReduce for Distributed Deep Learning in the Cloud},
+  author        = {Warraich, Ertza and Shabtai, Omer and Manaa, Khalid and Vargaftik, Shay and Piasetzky, Yonatan and Kadosh, Matty and Suresh, Lalith and Shahbaz, Muhammad},
+  year          = {2023},
+  eprint        = {2310.06993},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.DC},
+  url           = {https://arxiv.org/abs/2310.06993}
+}
+
+@misc{taccl2021,
+  title         = {TACCL: Guiding Collective Algorithm Synthesis using Communication Sketches},
+  author        = {Shah, Aashaka and Chidambaram, Vijay and Cowan, Meghan and Maleki, Saeed and Musuvathi, Madan and Mytkowicz, Todd and Nelson, Jacob and Saarikivi, Olli and Singh, Rachee},
+  year          = {2021},
+  eprint        = {2111.04867},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.DC},
+  url           = {https://arxiv.org/abs/2111.04867}
+}
+
+@misc{bytepscompress2021,
+  title         = {Compressed Communication for Distributed Training: Adaptive Methods and System},
+  author        = {Zhong, Yuchen and Xie, Cong and Zheng, Shuai and Lin, Haibin},
+  year          = {2021},
+  eprint        = {2105.07829},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.DC},
+  url           = {https://arxiv.org/abs/2105.07829}
+}
+
+@inproceedings{deepspeed2020,
+  author       = {Rasley, Jeff and Rajbhandari, Samyam and Ruwase, Olatunji and He, Yuxiong},
+  title        = {DeepSpeed: System Optimizations Enable Training Deep Learning Models with Over 100 Billion Parameters},
+  booktitle    = {Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining},
+  year         = {2020},
+  publisher    = {ACM},
+  doi          = {10.1145/3394486.3406703},
+  url          = {https://doi.org/10.1145/3394486.3406703}
+}
+
+@misc{usp2024sp,
+  title         = {USP: A Unified Sequence Parallelism Approach for Long Context Generative AI},
+  author        = {Fang, Jiarui and Zhao, Shangchun},
+  year          = {2024},
+  eprint        = {2405.07719},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2405.07719}
+}
+
+@misc{ulysses2026,
+  title         = {Untied Ulysses: Memory-Efficient Context Parallelism via Headwise Chunking},
+  author        = {Ghadia, Ravi and Abraham, Maksim and Vorobyov, Sergei and Ryabinin, Max},
+  year          = {2026},
+  eprint        = {2602.21196},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2602.21196}
+}
+
+@misc{she2025mip,
+  title         = {Automatic Operator-level Parallelism Planning for Distributed Deep Learning -- A Mixed-Integer Programming Approach},
+  author        = {She, Ruifeng and Pang, Bowen and Li, Kai and Liu, Zehua and Zhong, Tao},
+  year          = {2025},
+  eprint        = {2503.09357},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2503.09357}
 }

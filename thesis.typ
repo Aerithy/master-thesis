@@ -4,29 +4,33 @@
 #let abstract-zh-text = [
   #show: abstract.with(keyword: ("分布式训练", "云边端协同", "跨域通信", "通信优化", "大语言模型"))
 
-  在大语言模型训练中，分布式训练技术已成为支撑大规模模型训练的核心基础。随着训练数据与算力资源从“单一数据中心”走向“云-边-端协同”的跨域形态：数据分布在云端数据湖、边缘微型数据中心与端侧设备，算力分散在中心云 GPU 集群、边缘 GPU/CPU 节点与部分端侧加速器。训练系统面临更强的异构性：域内链路（如同机 NVLink/PCIe、同域 RDMA）高带宽低时延，而跨域链路（边缘到云、边缘到边缘、端到边缘的蜂窝/宽带接入）往往带宽更低、RTT 更高且抖动更大。由此产生的梯度同步通信开销更容易进入迭代关键路径，成为制约云边端协同训练吞吐与时延的关键瓶颈。
+  在大语言模型训练中，分布式训练技术已成为支撑大规模模型训练的核心基础。为了缓解单一数据中心的算力资源压力并避免海量数据跨地域搬移，训练数据与算力资源正在从“单一数据中心”向“云-边-端协同”的跨域形态演进。然而，在跨域分布式训练场景下系统面临着极强的广域网络异构性：相较于机柜内部或域内链路的高带宽与低时延，跨域链路（边缘到云、边缘到终端等）往往带宽更低、延迟更高且抖动显著。这种拓扑结构导致在跨域数据并行中的阻塞式梯度同步操作极易成为系统的性能瓶颈，使得算力资源大量闲置。
 
-  针对上述挑战，本文以“跨域（Cloud–Edge–Device）分布式训练通信优化”为目标，从通信量、集合通信调度、计算-通信重叠三个层面开展系统性研究。本文主要工作如下：
+  针对上述通信瓶颈挑战，本文以“跨域分布式训练通信优化”为目标，从通信量、集合通信调度、计算与通信重叠三个层面展开系统性研究，提出了一套高效的跨域协同训练优化方案：
 
-  （1）通信数据量优化：提出 k-bit 随机舍入量化分布式优化方法，支持 $b in {1, 2, 4, 8, 16}$ 的可配置位宽。在受限链路条件下，通信数据量最高可降低至原有的 1/32，并可在压缩率与收敛稳定性之间进行可调折中；同时设计与之配套的量化同步与聚合机制，实现对低比特量化张量的高效通信支持。
+  （1）通信数据量优化层面：针对跨域受限链路下数据交换载荷过大导致的网络传输瓶颈问题。首先，引入指数移动平均与自适应归一化平滑历史梯度；其次，提出 k-bit 随机舍入量化分布式压缩机制，将连续浮点梯度映射为仅使用低比特表示的有限的离散数值；最后，设计带有残差补偿的量化同步与聚合算法，以缓解位宽降低带来的累积噪声。该层面优化了单次同步的通信带宽开销，最终在受限网络下将单次通信量最高压缩至原规模的 1/32，在保障收敛稳定性的同时，于 100 Mb/s 极低带宽场景下将端到端吞吐量提升了 2.43 倍。
 
-  （2）集合通信调度优化：系统分析跨数据中心场景下的 All-Reduce 通信过程，针对 NCCL 的 CollNet 通信机制进行改进，提出多层流水线通信调度策略，充分利用集群间和集群内的异构带宽资源，显著加速通信过程。
+  （2）集合通信调度优化层面：针对跨域系统中“域内快、域间慢”非对称拓扑导致的传统扁平同步原语执行低效、硬件资源闲置问题。首先，将全局通信解耦为域内归约、跨域传输与域内广播三个阶段；其次，基于双流并行引入张量分块级的流水线机制；最后，在底层集合通信原语间建立跨流的逻辑事件依赖原语。该层面优化了跨域异构集群间数据聚合的调度重叠率，最终充分利用了域内部的高速带宽，将跨域节点间的梯度同步通信耗时降低了 42.3%，进而使端到端训练吞吐量提升了 1.35 倍。
 
-  （3）计算-通信重叠优化：量化分析混合并行策略下的计算-通信重叠程度，对比跨数据中心通信与数据中心内部通信的重叠差异，通过重新设计混合并行模式下的梯度同步机制，有效提升计算-通信掩盖程度。
+  （3）计算通信重叠与误差修正层面：针对混合并行（DP+PP）训练在单次迭代末尾极易产生不可掩盖的阻塞式同步尾部问题。首先，在反向传播阶段选择前置的微批次来提前触发非阻塞集合通信；其次，利用张量缩放外推尚未计算完成的梯度尺度并将其纳入全网同步；最后，利用轻量级残差反馈通道，将预测偏差与后缀剩余梯度延迟补偿至下一计算迭代。该层面优化了设备本地计算时间与跨域通信时长的掩盖比率，最终成功消除了由跨域 All-Reduce 造成的尾部纯等待空窗，在维持“每迭代一次全局同步”语义的前提下将端到端训练吞吐量提升至未优化基线的 1.87 倍。
+
+  本文的整合方案在多节点 GPU 集群中进行了系统验证，依托网络控制复现了真实的跨域受限链路条件（30 Gb/s带宽，50ms延迟），并针对上述三个层面实现了各层面协同运行的通信优化框架。端到端评估测试表明，本优化框架能够将面向云边端协同模型训练系统吞吐量提升至未优化基线的 1.78 \~ 4.35 倍；且在模型收敛精度与损失（Loss）预测曲线上与传统全同步梯度下降方案保持高度一致，在维持模型质量的前提下大幅降低了跨域瓶颈损耗。
 ]
 
 #let abstract-en-text = [
   #show: abstract-en.with(keyword: ("Distributed Training", "Cloud-Edge-Device Collaboration", "Cross-Domain Communication", "Communication Optimization", "Large Language Models"))
 
-  Distributed training has become the fundamental infrastructure for large language model training. As training data and compute resources move from a single data center to cloud-edge-device collaboration, data are distributed across cloud data lakes, edge micro-data centers, and end devices, while compute is spread across central cloud GPU clusters, edge GPU/CPU nodes, and some end-device accelerators. Training systems therefore face stronger heterogeneity: intra-domain links, such as same-machine NVLink/PCIe and intra-domain RDMA, offer high bandwidth and low latency, whereas cross-domain links, such as edge-to-cloud, edge-to-edge, and device-to-edge cellular/broadband access, usually provide lower bandwidth, higher RTT, and larger jitter. As a result, the communication overhead of gradient synchronization is more likely to enter the iterative critical path and become a key bottleneck for cloud-edge-device collaborative training throughput and latency.
+  Distributed training is the fundamental infrastructure for scaling large language models. To alleviate GPU resource pressure in single datacenters and avoid migrating massive data across regions, resources are shifting towards a "cloud-edge-device" collaborative paradigm. However, training systems under this paradigm face severe network heterogeneity: while intra-domain links offer high bandwidth and low latency, cross-domain links suffer from significantly lower bandwidth, higher latency, and larger jitter. Consequently, the blocking gradient synchronization operations across domain clusters become a severe performance bottleneck, underutilizing available computation resources.
 
-  To address these challenges, this thesis targets communication optimization for cross-domain (Cloud–Edge–Device) distributed training, and conducts systematic research from three aspects: communication volume, collective communication scheduling, and computation-communication overlap. The main contributions are as follows:
+  To address this bottleneck, this thesis targets communication optimization for cross-domain distributed training and conducts systematic research spanning three interrelated aspects: transmission volume, collective scheduling, and computation-communication overlap. The main contributions and proposed mechanisms are as follows:
 
-  (1) *Communication Volume Optimization*: We propose a k-bit stochastic-rounding distributed optimization method with configurable bit widths ($b in {1, 2, 4, 8, 16}$). Under constrained links, it reduces communication volume by up to 32x (1/32 of the original size) while enabling a tunable trade-off between compression ratio and convergence stability; we further design a compatible quantized synchronization and aggregation mechanism to efficiently support low-bit quantized tensors.
+  (1) *Communication Volume Optimization*: Targeting the network transmission bottleneck caused by massive data exchange payloads over cross-domain constrained links. First, we introduce continuous exponential moving average and adaptive normalization to smooth historical gradients. Next, we propose a k-bit stochastic rounding distributed compression mechanism ($b in {1, 2, 4, 8, 16}$) to map floating-point gradients to discrete levels. Finally, we design a quantized synchronization procedure intertwined with compensations to mitigate cumulative noises. This optimizes the communication bandwidth boundaries per synchronization, ultimately compressing the payload by up to 32x and increasing the end-to-end throughput by 2.43x under extremely low-bandwidth (100 Mb/s) scenarios while guaranteeing convergence stability.
 
-  (2) *Collective Communication Scheduling Optimization*: We systematically analyze the All-Reduce communication process in cross-data-center scenarios, improve upon NCCL's CollNet communication mechanism, and propose a multi-level pipeline communication scheduling strategy that fully exploits heterogeneous bandwidth resources between and within clusters, significantly accelerating the communication process.
+  (2) *Collective Communication Scheduling*: Targeting the execution inefficiency and hardware underutilization induced by conventional flat synchronization primitives operating on the asymmetric "fast intra-domain, slow inter-domain" topology. First, we logically decouple global communications into intra-domain reduction, inter-domain communication, and intra-domain broadcast. Second, we orchestrate a tensor-chunking pipeline mechanism powered by dual-stream concurrency. Finally, fine-grained event dependencies are seamlessly injected into the operator backend. This optimizes the scheduling overlap ratio for heterogeneous aggregations, ultimately reducing the cross-node gradient synchronization time by 42.3% and improving the end-to-end training throughput by 1.35x.
 
-  (3) *Computation-Communication Overlap Optimization*: We quantitatively analyze the degree of computation-communication overlap in hybrid parallelism strategies, compare the overlap differences between cross-data-center communication and intra-data-center communication, and improve the overlap degree by redesigning the gradient synchronization mechanism in hybrid parallelism mode.
+  (3) *Computation-Communication Overlap*: Targeting the inescapable blocking synchronization tail generated at the tail-end of hybrid parallel (DP+PP) training iterations. First, we pinpoint the safety window and trigger prefix-based non-blocking collective communication operations (POLAR-SGD) early inside backward passes. Then, tensor extrapolations are operated to scale the incomplete prefix gradients for global coordination. Finally, an agile residual error loop securely compensates prediction deviations onto following schedules. This optimizes the temporal masking ratio between localized computations and global broadcasts, successfully eliminating pure-stalled cross-domain All-Reduce deadlocks and remarkably hiking the end-to-end training throughput to 1.87x of the unoptimized baseline under intact "sync-per-iteration" semantics.
+
+  End-to-end evaluations on multi-node GPU clusters under emulated authentic cross-domain link constraints (30 Gb/s bandwidth and 50 ms latency) validate the system integration. Experiments demonstrate that the integrated framework achieves a 1.78 \~ 4.35x improvement in training throughput compared to the standard synchronous baseline. Furthermore, it produces convergence trajectories almost identical to traditional synchronous methods without degrading model quality, showcasing efficient and robust large model training for cross-domain collaborations.
 ]
 
 #show: thesis.with(
@@ -54,16 +58,22 @@
   abstract-en: abstract-en-text,
   bibliography: bibliography.with("supplementary/bib.bib"),
   achievement: [
-    围绕云边端跨域分布式训练通信优化开展系统研究，形成了本文提出的关键方法与实验结果。
+    围绕云边端跨域分布式训练场景下的通信瓶颈问题开展了系统性研究，提出了低比特量化压缩、分层流水线集合通信调度以及计算与通信重叠等关键优化方法，并完成了系统的设计与验证。
 
-    完成了相关实验平台搭建、算法实现与论文撰写工作。
+    独立完成了跨域分布式实验平台的搭建、核心优化算法的工程实现与性能调优，并通过详实的实验论证了本文提出方法的有效性。
+
+    在读期间，围绕本文核心研究内容，已录用高水平学术论文一篇。
+
+    申请国家发明专利一项。
   ],
   acknowledgements: [
-    衷心感谢导师肖利民教授在选题、研究思路与论文写作过程中给予的悉心指导。
+    行文至此，三载硕士生涯即将画上句号。在此，诚挚感谢我的导师肖利民教授。从最初的课题探索、研究思路的梳理，到最终论文的字斟句酌，肖老师渊博的学识、严谨的治学态度和对科研的满腔热忱，始终是我前行路上的灯塔与榜样。
 
-    感谢课题组老师和同学在研究讨论、实验环境支持与论文修改方面提供的帮助。
+    感谢课题组的各位老师和同门。在无数个日夜的算法推演、系统调试与论文研讨中，是你们提供了无私的帮助与宝贵的建议，为我营造了包容且充满活力的学术氛围。
 
-    感谢家人和朋友在学习与科研期间给予的理解、关心与支持。
+    感谢北京航空航天大学计算机学院为我提供了卓越的研究平台、充足的学术资源以及悉心的生活保障，使我得以心无旁骛地探索未知。
+
+    最后，向我的家人与朋友们致以最深切的谢意。感谢你们一直以来的默默付出、包容与鼓励，是你们无条件的爱与支持，赋予我克服困难、不断前行的勇气与力量。
   ],
   cv: [
     2023年09月 - 2026年06月：北京航空航天大学，计算机科学与技术专业，硕士研究生
