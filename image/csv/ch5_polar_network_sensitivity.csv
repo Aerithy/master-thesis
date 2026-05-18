@@ -1,0 +1,11 @@
+Bandwidth,Baseline(tokens/s),Proposed(tokens/s)
+100Mbps,1028,1304
+300Mbps,2104,3298
+1Gbps,4358,8124
+3Gbps,8900,19500
+10Gbps,18300,52000
+20Gbps,28700,63500
+30Gbps,35350,66104
+50Gbps,45000,66650
+100Gbps,52500,66950
+

@@ -206,9 +206,7 @@
   caption: [本系统与基线系统的 step 对齐与 wall-clock 对齐 loss 曲线]
 ) <fig:ch6-system-loss-curves>
 
-如@fig:ch6-system-loss-curves 所示，step 对齐与 wall-clock 对齐两类曲线均保持与基线接近，未出现明显漂移。
-
-从收敛一致性看，最终验证损失差值均控制在 0.05 以内，说明本系统符合训练结果可控。
+如@fig:ch6-system-loss-curves 所示，step 对齐与 wall-clock 对齐两类曲线均保持与基线接近，未出现明显漂移。从收敛一致性看，最终验证损失差值均控制在 0.05 以内，说明本系统符合训练结果可控。
 
 // Data source: image/csv/ch6_system_degradation_test.csv
 #figure(
