@@ -242,8 +242,8 @@ def draw_ch4_bandwidth_ratio_3factor() -> None:
 
     ax.set_xlabel("Intra/Inter Bandwidth Ratio")
     ax.set_ylabel("Speedup (x)")
-    ax.set_title("Fixed Tensor (1024MB): Chunk Curves under Bandwidth Asymmetry")
-    ax.set_xticks([5, 10, 20, 30])
+    ax.set_title("Fixed Tensor (256MB): Chunk Curves under Bandwidth Asymmetry")
+    ax.set_xticks([2, 5, 10, 20, 30])
     ax.grid(True, linestyle="--", alpha=0.3)
     ax.legend(frameon=False, fontsize=11)
 

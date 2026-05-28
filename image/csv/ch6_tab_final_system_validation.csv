@@ -1,4 +1,4 @@
 network_group,link_condition,baseline_throughput,system_throughput,speedup,baseline_ttt_min,system_ttt_min,val_loss_gap
-N2（弱受限）,10-30 Gb/s; 5-30 ms,78500,139730,1.78x,302,271,0.01
-N3（中度受限）,1-10 Gb/s; 30-100 ms,45600,129960,2.85x,386,135,0.02
-N4（强受限）,10-200 Mb/s; 5-30 ms,28100,123359,4.39x,512,117,0.05
+N2（弱受限）,10-30 Gb/s; 5-30 ms,354,1362,3.85x,302,79,0.02
+N3（中度受限）,5-10 Gb/s; 30-100 ms,223,1003,4.50x,480,107,0.03
+N4（强受限）,1-5 Gb/s; 30-100 ms,86,551,6.41x,1242,194,0.04

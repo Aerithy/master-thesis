@@ -1,4 +1,4 @@
 network_group,link_condition,baseline_throughput,system_throughput,baseline_iter_ms,system_iter_ms,baseline_comm_share,system_comm_share
-Weak-constrained,10-30 Gb/s; 5-30 ms,78500,139730,422,237,166.8,18.2
-Moderate-constrained,1-10 Gb/s; 30-100 ms,45600,129960,617,217,379,21.0
-Strong-constrained,10-200 Mb/s; 5-30 ms,28100,123359,988,225,745,18.0
+Weak-constrained,10-30 Gb/s; 5-30 ms,354,1362,1446,376,1050,95
+Moderate-constrained,5-10 Gb/s; 30-100 ms,223,1003,2296,511,1880,230
+Strong-constrained,1-5 Gb/s; 30-100 ms,86,551,5953,929,5480,620

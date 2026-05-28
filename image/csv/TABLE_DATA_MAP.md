@@ -25,6 +25,7 @@ Related figure data CSV files:
 - fig:comm-asymmetry -> image/csv/ch4_comm_asymmetry.csv
 - fig:e2e-result -> image/csv/ch4_e2e_results.csv
 - fig:chunk-sensitivity -> image/csv/ch4_chunk_sensitivity.csv
+- fig:dppp-timebreakdown -> image/csv/ch5_dppp_timebreakdown.csv
 - fig:ch6-system-perf -> image/csv/ch6_system_perf_compare.csv
 - fig:ch6-system-loss-curves -> image/csv/ch6_system_loss_curves_step.csv + image/csv/ch6_system_loss_curves_time.csv
 - fig:ch6-system-degradation -> image/csv/ch6_system_degradation_test.csv

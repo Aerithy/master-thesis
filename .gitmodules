@@ -4,3 +4,6 @@
 [submodule "polar-sgd"]
 	path = polar-sgd
 	url = https://github.com/Aerithy/polar-sgd.git
+[submodule "udtca"]
+	path = udtca
+	url = https://github.com/Aerithy/udtca.git

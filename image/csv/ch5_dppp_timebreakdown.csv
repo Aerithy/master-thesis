@@ -1,0 +1,3 @@
+network,computation_sec,overlapped_allreduce_sec,exposed_allreduce_sec
+30 Gb/s,18.0,6.7,23.9
+200 Gb/s,20.0,4.5,0.0

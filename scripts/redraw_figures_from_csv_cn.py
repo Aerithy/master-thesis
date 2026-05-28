@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")
+
 import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -187,15 +190,33 @@ def draw_ch3_validation_loss_curve() -> None:
 def draw_ch4_comm_asymmetry() -> None:
     df = pd.read_csv(CSV_DIR / "ch4_comm_asymmetry.csv")
 
-    fig, ax = plt.subplots(figsize=(8.8, 4.2))
-    bars = ax.bar(df["link_type"], df["bandwidth_gbps"], color=["#5B8FF9", "#F6BD16", "#E8684A"])
+    labels = ["节点内\nNVLink", "节点间\nIB", "跨域\nWAN"]
+
+    fig, ax = plt.subplots(figsize=(7.6, 4.25))
+    bars = ax.bar(
+        labels,
+        df["bandwidth_gbps"],
+        width=0.46,
+        color=["#5B8FF9", "#F6BD16", "#E8684A"],
+    )
     ax.set_yscale("log")
+    ax.set_ylim(8, 12000)
     ax.set_ylabel("带宽（Gbps，对数刻度）", fontsize=16)
-    ax.set_title("通信域带宽非对称性", fontsize=18)
+    ax.set_title("通信域带宽非对称性", fontsize=18, pad=10)
     ax.grid(axis="y", linestyle="--", alpha=0.3)
+    ax.tick_params(axis="x", labelsize=14, pad=6)
+    ax.tick_params(axis="y", labelsize=13)
+    ax.margins(x=0.16)
 
     for b, v in zip(bars, df["bandwidth_gbps"]):
-        ax.text(b.get_x() + b.get_width() / 2.0, v, f"{int(v)}", ha="center", va="bottom", fontsize=14)
+        ax.text(
+            b.get_x() + b.get_width() / 2.0,
+            v * 1.08,
+            f"{int(v)}",
+            ha="center",
+            va="bottom",
+            fontsize=14,
+        )
 
     _save(fig, "ch4-comm-asymmetry.svg")
 
@@ -258,8 +279,8 @@ def draw_ch4_bandwidth_ratio_3factor() -> None:
 
     ax.set_xlabel("域内/域间带宽比", fontsize=16)
     ax.set_ylabel("加速比（x）", fontsize=16)
-    ax.set_title("固定张量(1024MB)：带宽非对称下的分块曲线", fontsize=18)
-    ax.set_xticks([5, 10, 20, 30])
+    ax.set_title("固定张量(256MB)：带宽非对称下的分块曲线", fontsize=18)
+    ax.set_xticks([2, 5, 10, 20, 30])
     ax.grid(True, linestyle="--", alpha=0.3)
     ax.legend(frameon=False, fontsize=14)
 
@@ -350,6 +371,52 @@ def draw_ch4_expC_jitter_loss_3factor() -> None:
     _save(fig, "ch4-expC-jitter-loss-3factor.svg")
 
 
+def draw_ch5_dppp_timebreakdown() -> None:
+    df = pd.read_csv(CSV_DIR / "ch5_dppp_timebreakdown.csv")
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.0))
+    x = [0.0, 0.64]
+    width = 0.46
+
+    colors = {
+        "computation_sec": "#5B8FF9",
+        "overlapped_allreduce_sec": "#61DDAA",
+        "exposed_allreduce_sec": "#E8684A",
+    }
+    labels = {
+        "computation_sec": "计算",
+        "overlapped_allreduce_sec": "已重叠 All-Reduce",
+        "exposed_allreduce_sec": "暴露 All-Reduce",
+    }
+
+    bottom = [0.0] * len(df)
+    for key in ("computation_sec", "overlapped_allreduce_sec", "exposed_allreduce_sec"):
+        values = df[key].tolist()
+        ax.bar(
+            x,
+            values,
+            width=width,
+            bottom=bottom,
+            color=colors[key],
+            label=labels[key],
+        )
+        bottom = [b + v for b, v in zip(bottom, values)]
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(df["network"], fontsize=15)
+    ax.set_ylabel("每步耗时（秒）", fontsize=16)
+    ax.set_title("DP+PP 每步计算/通信开销分解", fontsize=18, pad=10)
+    ax.set_xlim(-0.34, 0.98)
+    ax.set_ylim(0, 56)
+    ax.grid(axis="y", linestyle="--", alpha=0.28)
+    ax.legend(frameon=True, fontsize=13, loc="upper right")
+
+    for i, total in enumerate(bottom):
+        ax.text(i, total + 0.6, f"{total:.1f}s", ha="center", va="bottom", fontsize=13)
+
+    _save(fig, "ch5-dppp-timebreakdown.svg")
+
+
 def main() -> None:
     _configure_plot_style()
     draw_ch3_comm_bottleneck()
@@ -364,6 +431,7 @@ def main() -> None:
     draw_ch4_expA_bandwidth_throttle_3factor()
     draw_ch4_expB_rtt_escalation_3factor()
     draw_ch4_expC_jitter_loss_3factor()
+    draw_ch5_dppp_timebreakdown()
 
 
 if __name__ == "__main__":

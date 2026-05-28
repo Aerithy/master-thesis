@@ -10,7 +10,7 @@
 从云边端协同训练的视角，当训练以跨域数据并行（DP）为并行策略骨架时，梯度的 All-Reduce 同步集合通信过程必须跨越域间的 WAN 链路，从而在每一次训练迭代的反向传播后形成显著的同步尾部。域内的设备持续将数据/梯度贡献汇入域间的网络出口，造成了严重的域间通信瓶颈，进一步放大 WAN 抖动对全局吞吐的影响。
 
 #figure(
-  image("../../supplementary/images/pp_across_dcs.png", width: 75%),
+  image("../../image/ch5_pp_across_dcs.png", width: 75%),
   caption: [跨域流水线并行：激活数据在域间传输，产生域间通信瓶颈]
 ) <fig:cross-dc-pp>
 
@@ -23,7 +23,7 @@
 相对地，以数据并行为主要策略将前/后向计算限定在域内，仅在迭代末进行梯度同步，天然契合数据就地处理，并对网络波动更鲁棒，如@fig:cross-dc-dp 所示。
 
 #figure(
-  image("../../supplementary/images/dp_across_dcs.png", width: 75%),
+  image("../../image/ch5_dp_across_dcs.png", width: 75%),
   caption: [跨域数据并行 + 域内流水线并行：各域处理本地数据，仅跨 WAN 同步梯度]
 ) <fig:cross-dc-dp>
 
@@ -47,8 +47,13 @@ $ V_"PP" approx Theta(B dot A) $
 
 在 WAN 延迟主导时，即使框架在反向传播期间做了梯度分桶来使梯度同步 All-Reduce 与计算重叠，也容易在每次训练迭代末尾出现无法被剩余计算掩盖的通信同步阻塞尾部。原因在于，WAN 的 $T_"ar"$ 可能大于单个 bucket 之后剩余的可用计算窗口，导致最后几个 bucket 的同步受限于串行堆叠，形成长尾。@fig:dppp-timebreakdown 展示了 DP+PP 配置下跨域与域内开销分解：跨域同步在每步中占据一定比例，导致 GPU 等待。
 
+// #figure(
+//   image("../../supplementary/images/bar_time_by_network.png", width: 75%),
+//   caption: [DP+PP 配置下每步计算/通信开销分解：跨域同步成为主要等待来源]
+// ) <fig:dppp-timebreakdown>
+
 #figure(
-  image("../../supplementary/images/bar_time_by_network.png", width: 75%),
+  image("../../image/ch5-dppp-timebreakdown.svg", width: 75%),
   caption: [DP+PP 配置下每步计算/通信开销分解：跨域同步成为主要等待来源]
 ) <fig:dppp-timebreakdown>
 
@@ -103,9 +108,11 @@ $ V_"PP" approx Theta(B dot A) $
 
 POLAR-SGD 通过 *梯度缩放 + 误差反馈* 将后缀信息以残差形式注入下一次迭代，以同时保持系统重叠收益与优化语义稳定性。
 
-POLAR-SGD 的设计可概括为“系统效率、语义约束、优化稳定性”三者并重：在系统层面尽可能将跨 域 All-Reduce 前移到更早位置，以获得更长的计算重叠窗口并缩短迭代尾部；在语义层面保持“每迭代一次 DP 同步”的宏观节奏，避免完全异步导致的严重的梯度滞后（staleness）；在优化层面通过可控残差通道补齐后缀梯度信息，使 step-wise 收敛轨迹尽量贴近基线同步训练。
+POLAR-SGD 的设计可概括为系统效率、语义约束、优化稳定性三者并重：在系统层面尽可能将跨 域 All-Reduce 前移到更早位置，以获得更长的计算重叠窗口并缩短迭代尾部；在语义层面保持“每迭代一次 DP 同步”的宏观节奏，避免完全异步导致的严重的梯度滞后（staleness）；在优化层面通过可控残差通道补齐后缀梯度信息，使 step-wise 收敛轨迹尽量贴近基线同步训练。
 
 == 前缀触发的异步梯度同步
+
+本节进一步给出 POLAR-SGD 在单次训练迭代内的具体同步流程，说明如何选择触发点、构造前缀梯度并在独立通信流上发起非阻塞 All-Reduce。整体思路是在不改变每步一次全局同步语义的前提下，将原本位于迭代末尾的阻塞通信前移到仍有反向计算可执行的窗口中，从而为后续的梯度缩放与误差反馈机制提供执行基础。
 
 === 梯度 All-Reduce 的触发时机
 
@@ -113,7 +120,7 @@ POLAR-SGD 在每个 micro-batch 反向结束时累积梯度。当到达截断点
 
 #figure(
   kind: "algorithm",
-  placement: top,
+  // placement: top,
   supplement: [算法],
 
   pseudocode-list(booktabs: true, numbered-title: [POLAR-SGD 的前缀触发异步 All-Reduce（每迭代一次）], full: true)[
@@ -293,39 +300,47 @@ $ (1/T) sum_(t=0)^(T-1) bb(E)[||nabla f(w_t)||^2] <= (2 (f(w_0)-f^*))/(eta T) + 
 
 === 收敛曲线与消融
 
-本文进一步给出了按 step 对齐的 loss 曲线（验证训练稳定性）、按墙钟时间对齐的 loss 曲线（验证目标 loss 到达时间），以及对“梯度缩放 / 误差反馈”两项关键机制的消融结果。
-
 #figure(
   image("../../supplementary/images/json_curves_by_steps.png", width: 75%),
-  caption: [训练 loss 随 step 变化：POLAR-SGD 与基线高度一致，优于DiLoCo]
+  caption: [训练 loss 随 step 变化：POLAR-SGD 与基线高度一致，优于 DiLoCo]
 ) <fig:polar-loss-steps>
 
-按 step 对齐的结果用于回答“算法是否改变了每一步的优化行为”：如果曲线与基线接近，说明误差反馈确实在统计意义上补偿了前缀触发带来的偏差，使得训练轨迹没有明显漂移。
+本文进一步给出了按 step 对齐的 loss 曲线（验证训练稳定性）、按墙钟时间对齐的 loss 曲线（验证目标 loss 到达时间），以及对“梯度缩放 / 误差反馈”两项关键机制的消融结果。该组实验的目的并不只是观察最终 loss 是否接近，而是从优化轨迹、系统时间收益和机制必要性三个角度共同验证 POLAR-SGD 的有效性：若 step 对齐曲线漂移，则说明提前同步改变了优化语义；若墙钟时间曲线没有优势，则说明系统加速未能转化为训练效率；若消融后曲线明显退化，则可进一步定位收益依赖的关键机制。
+
+如@fig:polar-loss-steps 所示，按 step 对齐的结果回答了算法是否改变每一步优化行为这一问题。POLAR-SGD 的 loss 曲线与 DDP+1F1B 基线基本重合，在训练前期快速下降阶段和后期趋于平缓阶段均未出现持续偏离，说明前缀触发并没有引入系统性的更新方向偏差。换言之，虽然 POLAR-SGD 在每个 step 内提前使用前缀 micro-batch 构造同步梯度，但经过梯度缩放和误差反馈后，其长期优化轨迹仍能贴近完整梯度同步路径。
+
+该结果也说明 POLAR-SGD 与 DiLoCo 类降低同步频率的方法在优化语义上存在差异。DiLoCo 通过减少全局同步频率获得通信收益，其局部模型会在多个 step 内独立演化，因此 step 对齐曲线更容易表现出与同步基线的间隔；POLAR-SGD 则仍保持每步一次全局同步，只是在 step 内重排同步触发时间，因此更容易维持与基线一致的收敛轨迹。这一点对跨域训练尤其重要，因为系统吞吐提升若伴随明显 loss 漂移，后续还需要额外调参或延长训练来弥补，工程收益会被削弱。
 
 #figure(
   image("../../supplementary/images/json_curves_by_time.png", width: 75%),
   caption: [训练 loss 随墙钟时间变化：POLAR-SGD 更快进入低 loss 区间]
 ) <fig:polar-loss-time>
 
-按墙钟时间对齐则更直接反映系统收益：即便 step-wise 曲线接近，只要单步时间被缩短，模型就能更快达到同等 loss 区间，从而提升 time-to-target。
+如@fig:polar-loss-time 所示，按墙钟时间对齐则更直接反映系统收益。由于 step 对齐曲线已经表明不同方法的优化轨迹接近，墙钟时间曲线中的差异主要来自单步迭代时间的缩短，而不是来自更激进或更不稳定的优化过程。POLAR-SGD 曲线更早进入低 loss 区间，说明前文表格中的吞吐提升能够实际转化为 time-to-target 收益，即在相同训练时间预算内完成更多有效 step，或在达到相同目标 loss 时消耗更少实际时间。
+
+从系统角度看，这一结果补充了端到端吞吐表的不足。吞吐指标只说明单位时间内可处理的 token 数增加，但无法单独证明模型质量会随时间同步改善；墙钟时间 loss 曲线则说明 POLAR-SGD 的收益能够落到训练任务最终关心的目标 loss 到达时间上。因此，step 对齐与时间对齐两类曲线构成了互补证据：前者验证语义稳定，后者验证效率收益。
 
 #figure(
   image("../../supplementary/images/json_curves_by_steps_ablation.png", width: 75%),
   caption: [消融实验：去除梯度缩放或误差反馈会带来轻微收敛退化或稳定性风险]
 ) <fig:polar-ablation>
 
-消融结果强调了*梯度缩放（Gradient Scaling）与误差反馈（Error Feedback）*两个机制的必要性：一方面，若不执行 $(M/tau)$ 缩放，同步梯度尺度会系统性偏小，导致更新幅度不足并拖慢收敛；若不维护误差，后缀 micro-batch 的信息就难以在后续迭代中有序回流，进而增加收敛退化与稳定性风险。
+如@fig:polar-ablation 所示，消融结果强调了 *梯度缩放（Gradient Scaling）与误差反馈（Error Feedback）* 两个机制的必要性。一方面，若不执行 $(M/tau)$ 缩放，同步梯度只反映前缀 micro-batch 的平均贡献，其尺度相对完整 mini-batch 梯度会系统性偏小，导致参数更新幅度不足，表现为 loss 下降速度变慢。该现象说明，前缀触发不是简单地“提前发送部分梯度”即可成立，必须通过尺度校正使同步梯度在期望意义上对齐完整梯度。
+
+另一方面，若不维护误差反馈，后缀 micro-batch 中未被本轮同步完整表达的信息会在当前 step 后直接丢失，造成长期累积偏差。误差反馈的作用在于把前缀近似与完整梯度之间的差异显式保留下来，并在后续迭代中逐步补偿，使每一步的近似误差不会单向累积。消融曲线中去除误差反馈后的退化表明，该机制主要负责控制长期稳定性；而去除梯度缩放后的退化则更多体现为短期更新尺度不足。二者分别对应“单步梯度尺度正确性”和“跨步误差守恒性”，共同保证 POLAR-SGD 在提前通信的同时仍维持接近同步训练的优化行为。
+
+综合三组曲线可以得到更完整的结论：POLAR-SGD 的性能收益来自通信触发时机前移和计算通信重叠，但其可用性依赖于梯度缩放与误差反馈对优化语义的约束。也就是说，本方法并非通过放松同步语义或牺牲收敛质量换取吞吐，而是在保持每步同步节奏的前提下，将原本暴露在迭代尾部的跨域通信转移到可重叠窗口中，并通过误差修正机制限制由前缀近似带来的训练偏差。
 
 === 网络敏感性分析
 
-在不同网络条件下评估 POLAR-SGD 的性能，可以分析其对 WAN 特性的适应性。理论上，随着 RTT 增加或带宽降低，POLAR-SGD 的相对优势应该更明显，因为其核心设计目标就是掩盖 WAN 同步的尾部；但随着网络进一步劣化，POLAR-SGD 的优势可能会减弱，因为当网络条件恶化时，通信的延迟将会增加到远大于每次迭代时的反向传播计算时间，导致出现即使将通信前移至$tau = 1$的位置时，仍然会出现无法掩盖的通信开销，此时优化的效力将会降低，此时仅凭POLAR-SGD将无法妥善解决已有的通信瓶颈；相反，如果网络条件较好，POLAR-SGD 可能会退化为与基线类似的行为。
+在不同网络条件下评估 POLAR-SGD 的性能，可以分析其对 WAN 特性的适应性。理论上，随着 RTT 增加或带宽降低，POLAR-SGD 的相对优势应该更明显，因为其核心设计目标就是掩盖 WAN 同步的尾部；但随着网络进一步劣化，POLAR-SGD 的优势可能会减弱，因为当通信延迟远大于每次迭代中的反向传播计算时间时，即使将通信前移至 $tau = 1$ 的位置，仍然会出现无法掩盖的通信开销，此时仅凭 POLAR-SGD 难以完全解决通信瓶颈；相反，如果网络条件较好，POLAR-SGD 可能会退化为与基线类似的行为。
 
 #figure(
   image("../../image/polar_network_sensitivity.png", width: 75%),
   caption: [POLAR-SGD 在不同网络条件下的性能表现]
 ) <fig:polar-network-sensitivity>
 
-如@fig:polar-network-sensitivity 所示，在网络条件较好的情况下，POLAR-SGD 的性能与基线相近；随着网络条件恶化，POLAR-SGD 的相对基线的性能提升明显，但总体上来说，在约20Gbps的环境时，POLAR-SGD 的绝对性能逐渐减弱，并在进一步的带宽恶化下，相对基线的性能提升也逐渐降低。这一结果验证了 POLAR-SGD 在 WAN 同步受限场景下的设计初衷，同时也揭示了其适用范围和潜在局限。在极端恶劣的网络条件下，仅靠POLAR-SGD 可能无法完全解决通信瓶颈问题，此时需要结合本文中之前所述的优化策略来进一步提升性能。
+如@fig:polar-network-sensitivity 所示，在网络条件较好的情况下，POLAR-SGD 的性能与基线相近；随着网络条件恶化，POLAR-SGD 相对基线的性能提升更明显。但总体来看，在约 20 Gb/s 的环境中，POLAR-SGD 的绝对性能已开始减弱，并在进一步的带宽恶化下，相对基线的性能提升也逐渐降低。这一结果验证了 POLAR-SGD 在 WAN 同步受限场景下的设计初衷，同时也揭示了其适用范围和潜在局限。在极端恶劣的网络条件下，仅靠 POLAR-SGD 可能无法完全解决通信瓶颈问题，此时需要结合前文所述的压缩与调度优化策略进一步提升性能。
 
 === 截断点敏感性分析
 
