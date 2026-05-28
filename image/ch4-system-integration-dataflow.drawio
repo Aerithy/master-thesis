@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="ch4-system-integration-v3" name="Page-1">
-        <mxGraphModel dx="747" dy="618" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1520" pageHeight="880" math="0" shadow="0">
+        <mxGraphModel dx="1090" dy="827" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1520" pageHeight="880" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -35,10 +35,10 @@
                     <mxGeometry x="405" y="355" width="270" height="75" as="geometry"/>
                 </mxCell>
                 <mxCell id="23" value="&lt;b&gt;TensorBuffer Flatten&lt;/b&gt;&lt;br&gt;flat_buffer" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=3;fontFamily=Times New Roman;fontSize=24;fontStyle=1;align=center;" parent="1" vertex="1">
-                    <mxGeometry x="105" y="460" width="270" height="70" as="geometry"/>
+                    <mxGeometry x="105" y="468" width="270" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="24" value="&lt;b&gt;Unflatten + Update&lt;/b&gt;&lt;br&gt;写回参数梯度" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=24;fontStyle=1;align=center;" parent="1" vertex="1">
-                    <mxGeometry x="405" y="460" width="270" height="70" as="geometry"/>
+                    <mxGeometry x="405" y="468" width="270" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="25" value="&lt;b&gt;optimizer.step&lt;/b&gt;&lt;br&gt;参数更新完成" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;fontFamily=Times New Roman;fontSize=24;fontStyle=1;align=center;" parent="1" vertex="1">
                     <mxGeometry x="255" y="580" width="230" height="75" as="geometry"/>
@@ -68,43 +68,43 @@
                     <mxGeometry x="1230" y="580" width="200" height="75" as="geometry"/>
                 </mxCell>
                 <mxCell id="70" value="配置注入" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=20;fontStyle=1;entryX=0;entryY=0.25;entryDx=0;entryDy=0;labelBackgroundColor=none;" parent="1" source="11" target="31" edge="1">
-                    <mxGeometry x="0.0048" y="10" relative="1" as="geometry">
+                    <mxGeometry x="0.008" y="15" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="260" y="270"/>
-                            <mxPoint x="730" y="270"/>
+                            <mxPoint x="260" y="278"/>
+                            <mxPoint x="730" y="278"/>
                             <mxPoint x="730" y="374"/>
                         </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="71" value="参数下发" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=20;fontStyle=1;labelBackgroundColor=none;" parent="1" source="12" target="35" edge="1">
-                    <mxGeometry x="-0.0093" y="-10" relative="1" as="geometry">
+                    <mxGeometry x="-0.0337" y="-14" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="620" y="260"/>
-                            <mxPoint x="1215" y="260"/>
+                            <mxPoint x="620" y="256"/>
+                            <mxPoint x="1464" y="256"/>
+                            <mxPoint x="1464" y="505"/>
                         </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="72" value="在线调优" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;dashed=1;endArrow=classic;fontFamily=Times New Roman;fontSize=20;fontStyle=1;labelBackgroundColor=none;" parent="1" source="14" target="31" edge="1">
-                    <mxGeometry x="-0.1882" y="-10" relative="1" as="geometry">
+                    <mxGeometry x="-0.2002" y="-14" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1470" y="196"/>
-                            <mxPoint x="1470" y="330"/>
+                            <mxPoint x="1481" y="196"/>
+                            <mxPoint x="1481" y="330"/>
                             <mxPoint x="870" y="330"/>
                         </Array>
                         <mxPoint x="1" as="offset"/>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="73" value="梯度输入" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=20;fontStyle=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;labelBackgroundColor=none;" parent="1" source="23" target="31" edge="1">
-                    <mxGeometry x="-0.0784" y="10" relative="1" as="geometry">
+                    <mxGeometry x="-0.063" y="16" relative="1" as="geometry">
                         <mxPoint x="770" y="430" as="targetPoint"/>
                         <Array as="points">
                             <mxPoint x="90" y="495"/>
-                            <mxPoint x="90" y="450"/>
-                            <mxPoint x="730" y="450"/>
-                            <mxPoint x="730" y="410"/>
-                            <mxPoint x="770" y="410"/>
+                            <mxPoint x="90" y="460"/>
+                            <mxPoint x="730" y="460"/>
+                            <mxPoint x="730" y="411"/>
                         </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
@@ -129,8 +129,8 @@
                 <mxCell id="78" value="collective 提交" style="edgeStyle=orthogonalEdgeStyle;rounded=0;jettySize=auto;html=1;strokeColor=#4f81bd;strokeWidth=3;endArrow=classic;fontFamily=Times New Roman;fontSize=20;fontStyle=1;labelBackgroundColor=none;" parent="1" source="35" target="36" edge="1">
                     <mxGeometry x="0.0508" y="-10" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1215" y="560"/>
-                            <mxPoint x="960" y="560"/>
+                            <mxPoint x="1215" y="564"/>
+                            <mxPoint x="960" y="564"/>
                         </Array>
                         <mxPoint x="-1" as="offset"/>
                     </mxGeometry>
